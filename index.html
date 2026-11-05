@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Сверка</title>
+<meta name="theme-color" content="#16232E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Сверка">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<script src="lib/jszip.min.js"></script>
+<style>
+:root{
+  --bg:#EEF1EF; --surface:#FFFFFF; --sunk:#E3E8E5; --ink:#16232E; --muted:#5E6C75; --line:#D3DAD7;
+  --in:#0E7A57; --out:#A63D2A; --accent:#1F4E79; --accent-ink:#FFFFFF; --warn:#7A5000; --warn-bg:#FFF1CC;
+  --info-bg:#E2ECF5; --info:#1F4E79;
+  --radius:14px;
+  font-family:system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  color-scheme:light; box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1518; --surface:#172026; --sunk:#1F2A31; --ink:#E6ECEA; --muted:#93A2A8; --line:#29353D;
+    --in:#3CC48F; --out:#EE7D66; --accent:#7FB2E5; --accent-ink:#0F1518; --warn:#F2C46B; --warn-bg:#33290F;
+    --info-bg:#18293A; --info:#9CC4EA; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1518; --surface:#172026; --sunk:#1F2A31; --ink:#E6ECEA; --muted:#93A2A8; --line:#29353D;
+  --in:#3CC48F; --out:#EE7D66; --accent:#7FB2E5; --accent-ink:#0F1518; --warn:#F2C46B; --warn-bg:#33290F;
+  --info-bg:#18293A; --info:#9CC4EA; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%;font-variant-numeric:tabular-nums}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hidden{display:none!important}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding:14px 18px 10px;display:flex;align-items:center;gap:10px}
+header.top h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.01em;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{border:0;background:var(--sunk);border-radius:50%;width:36px;height:36px;font-size:18px;line-height:1;flex:none;display:grid;place-items:center}
+main{padding:0 14px 110px;max-width:720px;margin:0 auto}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.tabs button{position:relative;border:0;background:none;padding:9px 2px 11px;font-size:12px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px}
+nav.tabs button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav.tabs button[aria-current="page"]{color:var(--ink);font-weight:600}
+nav.tabs .badge{position:absolute;top:4px;left:calc(50% + 5px)}
+.badge{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--out);color:#fff;font-size:11px;line-height:18px;text-align:center;font-weight:600}
+.panel{background:var(--surface);border-radius:var(--radius);margin:10px 0;overflow:hidden}
+.panel.pad{padding:16px}
+.row{display:flex;align-items:center;gap:12px;padding:13px 16px;border:0;border-top:1px solid var(--line);background:none;width:100%;text-align:left}
+.panel>.row:first-child,.panel>:first-child>.row:first-child{border-top:0}
+.row .grow{flex:1;min-width:0}
+.row .t{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .s{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.pos{color:var(--in)} .neg{color:var(--out)}
+.sec{font-size:14px;color:var(--muted);margin:22px 4px 6px;font-weight:500;display:flex;justify-content:space-between;gap:8px}
+.muted{color:var(--muted)} .small{font-size:13px}
+.hero{padding:6px 4px 12px}
+.hero .lbl{font-size:14px;color:var(--muted)}
+.hero .big{font-size:38px;font-weight:600;letter-spacing:-.02em;line-height:1.12;margin-top:2px}
+.hero .big small{font-size:21px;font-weight:500}
+.spark{display:block;width:100%;height:56px;margin-top:8px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 4px}
+.actions.one{grid-template-columns:1fr}
+.btn{border:0;border-radius:12px;padding:13px 16px;font-weight:600;background:var(--sunk);color:var(--ink);text-align:center}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.in{background:var(--in);color:#fff} .btn.out{background:var(--out);color:#fff}
+.btn.ghost{background:none;border:1px solid var(--line)}
+.btn.wide{width:100%} .btn:disabled{opacity:.5}
+.btn.sm{padding:8px 12px;font-size:14px;border-radius:10px}
+.search{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:11px 14px;margin:4px 0 2px}
+.seg{display:flex;background:var(--sunk);border-radius:11px;padding:3px;margin:8px 0}
+.seg button{flex:1;border:0;background:none;border-radius:9px;padding:7px 4px;font-size:14px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600}
+.sheetwrap{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.42);display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:720px;max-height:92%;overflow:auto;border-radius:20px 20px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px))}
+.sheet h2{margin:0 0 2px;font-size:20px}
+.sheet .sub{color:var(--muted);font-size:14px;margin-bottom:12px}
+.field{display:block;margin:10px 0}
+.field span{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+.field input,.field select{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:11px 12px}
+.field input.amount{font-size:22px;font-weight:600}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.two .field{margin:4px 0}
+.note{background:var(--warn-bg);color:var(--warn);border-radius:12px;padding:11px 14px;font-size:14px;margin:10px 0}
+.note.info{background:var(--info-bg);color:var(--info)}
+.progress{height:4px;background:var(--sunk);border-radius:2px;overflow:hidden;margin:8px 0}
+.progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+.doc{background:var(--surface);border-radius:var(--radius);margin:10px 0;padding:14px 16px}
+.doc.done{opacity:.7}
+.doc .head{display:flex;gap:12px;align-items:flex-start}
+.doc .head .grow{flex:1;min-width:0}
+.doc .name{font-weight:600}
+.doc .purpose{font-size:13px;color:var(--muted);margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.doc .amt{font-size:18px;font-weight:600}
+.filehead{display:flex;align-items:baseline;gap:8px;margin:22px 4px 4px}
+.filehead b{font-size:15px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{border:1px solid var(--line);background:var(--bg);border-radius:20px;padding:6px 12px;font-size:14px;text-align:left}
+.chip.main{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:8px;background:var(--sunk);color:var(--muted);vertical-align:1px}
+.tag.new{background:var(--accent);color:var(--accent-ink)}
+.tag.warn{background:var(--warn-bg);color:var(--warn)}
+table.sum{width:100%;border-collapse:collapse;font-size:14px}
+table.sum th{font-weight:500;color:var(--muted);text-align:right;padding:8px 8px;font-size:12px}
+table.sum th:first-child,table.sum td:first-child{text-align:left}
+table.sum td{padding:9px 8px;border-top:1px solid var(--line);text-align:right;white-space:nowrap}
+table.sum td:first-child{white-space:normal}
+.scrollx{overflow-x:auto}
+.monthbar{display:flex;align-items:center;justify-content:space-between;margin:6px 0}
+.monthbar b{font-size:18px}
+.chart{display:block;width:100%;height:auto}
+.chart text{fill:var(--muted);font-size:11px;font-family:inherit}
+.legend{display:flex;gap:14px;font-size:13px;color:var(--muted);margin:2px 4px 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+.tile{background:var(--surface);border-radius:var(--radius);padding:14px;border:0;text-align:left}
+.tile .lbl{font-size:13px;color:var(--muted)}
+.tile .v{font-size:20px;font-weight:600;margin-top:2px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;max-width:90%;text-align:center}
+.empty{text-align:center;padding:36px 20px}
+.empty h2{font-size:22px;margin:0 0 8px}
+.empty p{color:var(--muted);margin:0 0 18px}
+.star{border:0;background:none;font-size:22px;color:var(--muted);padding:4px}
+.star[aria-pressed="true"]{color:#D9A400}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top"><button class="iconbtn hidden" id="backBtn" aria-label="Назад">‹</button><h1 id="title">Сверка</h1><span id="topRight"></span></header>
+<main id="view"></main>
+<nav class="tabs" id="tabs">
+  <button data-tab="home"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/></svg>Главная</button>
+  <button data-tab="ledgers"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Журналы</button>
+  <button data-tab="docs"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/></svg>Документы<span id="docsBadge"></span></button>
+  <button data-tab="summary"><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Сводка</button>
+  <button data-tab="file"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Файл<span id="opsBadge"></span></button>
+</nav>
+<input type="file" id="xlsxInput" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden">
+<input type="file" id="docInput" accept="application/pdf,.pdf,.docx,.xlsx,.csv,.txt" multiple class="hidden">
+<script>
+"use strict";
+/* ================= настройки ================= */
+const WORK_SHEETS = [
+  "общий_Континент_ДТ","общий_Континент_АГОРА","общий_Аппарат_22_","транзиты","Рост МСК",
+  "покупатели_продукты","поставщики_продукты","покупатели_ДТ_","поставщики_ДТ_",
+  "покупатели_СТРОЙКА_","поставщики_СТРОЙКА_","ДОЛГИ_","дивиденды_выплата"
+];
+const PDFJS = new URL("lib/pdf.min.mjs", location.href).href;
+const PDFJS_WORKER = new URL("lib/pdf.worker.min.mjs", location.href).href;
+const OFFLINE = true;
+const APP_VERSION = "2.0";
+
+/* ================= утилиты ================= */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const xmlEsc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const xmlUnesc = s => s.replace(/&(amp|lt|gt|quot|apos|#\d+|#x[0-9a-f]+);/gi, (m, e) => {
+  if (e === "amp") return "&"; if (e === "lt") return "<"; if (e === "gt") return ">";
+  if (e === "quot") return '"'; if (e === "apos") return "'";
+  if (e[1] === "x" || e[1] === "X") return String.fromCodePoint(parseInt(e.slice(2), 16));
+  return String.fromCodePoint(parseInt(e.slice(1), 10));
+});
+const fmtNum = (n, d = 2) => (n == null || isNaN(n)) ? "—" : Number(n).toLocaleString("ru-RU", {minimumFractionDigits: 0, maximumFractionDigits: d});
+const fmtMoney = n => (n == null || isNaN(n)) ? "—" : Number(n).toLocaleString("ru-RU", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const fmtShort = n => { if (n == null || isNaN(n)) return "—"; const a = Math.abs(n); if (a >= 1e6) return (n / 1e6).toLocaleString("ru-RU", {maximumFractionDigits: 2}) + " млн"; if (a >= 1e4) return Math.round(n / 1e3).toLocaleString("ru-RU") + " тыс"; return fmtNum(n, 0); };
+const plural = (n, a, b, c) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? b : c; };
+const sign = n => n > 0.005 ? "pos" : n < -0.005 ? "neg" : "";
+const colCache = new Map();
+function colNum(s){ let v = colCache.get(s); if (v) return v; v = 0; for (const ch of s) v = v * 26 + ch.charCodeAt(0) - 64; colCache.set(s, v); return v; }
+function colName(n){ let s = ""; while (n > 0){ const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
+const serialToDate = v => new Date(Math.round((v - 25569) * 86400000));
+function fmtDate(v){
+  if (v == null || v === "") return "";
+  if (typeof v === "number"){ const d = serialToDate(v); return `${String(d.getUTCDate()).padStart(2,"0")}.${String(d.getUTCMonth()+1).padStart(2,"0")}.${d.getUTCFullYear()}`; }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)){ const [y, m, d] = v.split("-"); return `${d}.${m}.${y}`; }
+  return String(v);
+}
+const serialFromIso = s => { const [y, m, d] = s.split("-").map(Number); return Math.round(Date.UTC(y, m - 1, d) / 86400000) + 25569; };
+const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+const monthKey = serial => { const d = serialToDate(serial); return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}`; };
+const MONTHS = ["январь","февраль","март","апрель","май","июнь","июль","август","сентябрь","октябрь","ноябрь","декабрь"];
+const MONTHS_P = ["январе","феврале","марте","апреле","мае","июне","июле","августе","сентябре","октябре","ноябре","декабре"];
+const MONTHS_S = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
+const monthTitle = k => { const [y, m] = k.split("-"); return `${MONTHS[+m - 1]} ${y}`; };
+const normHdr = s => String(s ?? "").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
+function normName(s){
+  return String(s ?? "").toLowerCase().replace(/ё/g, "е")
+    .replace(/общество с ограниченной ответственностью|индивидуальный предприниматель|публичное акционерное общество|акционерное общество/g, " ")
+    .replace(/[«»"'`„“”()]/g, " ")
+    .replace(/(^|\s)(ооо|оао|зао|пао|ао|ип)(?=\s|$)/g, " ")
+    .replace(/[^a-zа-я0-9]+/g, " ").replace(/\s+/g, " ").trim();
+}
+function shortName(s){
+  return String(s ?? "").replace(/ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ/gi, "")
+    .replace(/(^|\s)ООО(?=\s|$)/g, " ").replace(/[«»"]/g, "").replace(/\s+/g, " ").trim();
+}
+const parseMoney = s => { const t = String(s ?? "").replace(/[\s\u00a0\u202f₽]/g, "").replace(/руб\.?/i, "").replace(",", "."); const n = parseFloat(t); return isNaN(n) ? null : n; };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const sheetLabel = n => n.replace(/_+$/, "").replace(/_/g, " ").trim();
+function toast(msg, ms = 2600){ const t = document.createElement("div"); t.className = "toast"; t.setAttribute("role", "status"); t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), ms); }
+function confirmBox(title, text, okLabel = "Продолжить"){
+  return new Promise(res => {
+    const w = document.createElement("div"); w.className = "sheetwrap";
+    w.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><h2>${esc(title)}</h2><div class="sub" style="font-size:15px">${text}</div>
+      <div class="actions"><button class="btn ghost" data-x="no">Отмена</button><button class="btn primary" data-x="yes">${esc(okLabel)}</button></div></div>`;
+    document.body.appendChild(w);
+    w.addEventListener("click", e => { const x = e.target.dataset.x; if (e.target === w || x === "no"){ w.remove(); res(false); } else if (x === "yes"){ w.remove(); res(true); } });
+  });
+}
+
+/* ================= хранилище на устройстве ================= */
+const Store = {
+  db: null,
+  open(){ return new Promise(res => { try{ const r = indexedDB.open("sverka", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => { this.db = r.result; res(true); }; r.onerror = () => res(false); }catch{ res(false); } }); },
+  get(k){ return new Promise(res => { if (!this.db) return res(undefined); try{ const q = this.db.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(undefined); }catch{ res(undefined); } }); },
+  set(k, v){ return new Promise(res => { if (!this.db) return res(false); try{ const tx = this.db.transaction("kv", "readwrite"); tx.objectStore("kv").put(v, k); tx.oncomplete = () => res(true); tx.onerror = () => res(false); }catch{ res(false); } }); }
+};
+
+/* ================= состояние ================= */
+const S = {
+  baseBuf: null, baseName: "", zip: null, sheets: [], ss: [], dateXf: new Set(),
+  parsed: {}, targets: {}, order: [], index: new Map(), amtIdx: new Map(), merged: {},
+  ops: [], rules: {}, settings: {ownInn: [], ownNames: [], pins: null, theme: "auto", claudeOk: false},
+  cands: [], files: {}, lastExport: null,
+  tab: "home", stack: [], loading: null, sumMonth: null, docBusy: null, filter: "all", showN: 40
+};
+
+/* ================= чтение xlsx ================= */
+async function loadWorkbook(buf){
+  S.zip = await JSZip.loadAsync(buf);
+  const wb = await S.zip.file("xl/workbook.xml").async("string");
+  const rels = await S.zip.file("xl/_rels/workbook.xml.rels").async("string");
+  const relMap = {};
+  for (const m of rels.matchAll(/<Relationship\b([^>]*)\/?>/g)){ const id = /Id="([^"]+)"/.exec(m[1]), tg = /Target="([^"]+)"/.exec(m[1]); if (id && tg) relMap[id[1]] = tg[1]; }
+  S.sheets = [];
+  for (const m of wb.matchAll(/<sheet\b([^>]*)\/>/g)){
+    const name = /name="([^"]*)"/.exec(m[1]), rid = /r:id="([^"]+)"/.exec(m[1]);
+    if (!name || !rid) continue;
+    let tg = relMap[rid[1]] || ""; tg = tg.startsWith("/") ? tg.slice(1) : "xl/" + tg;
+    S.sheets.push({name: xmlUnesc(name[1]), path: tg});
+  }
+  S.ss = [];
+  const ssf = S.zip.file("xl/sharedStrings.xml");
+  if (ssf){ const x = await ssf.async("string"); for (const m of x.matchAll(/<si>([\s\S]*?)<\/si>/g)){ let t = ""; for (const tm of m[1].matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)) t += tm[1]; S.ss.push(xmlUnesc(t)); } }
+  S.dateXf = new Set();
+  const stf = S.zip.file("xl/styles.xml");
+  if (stf){
+    const st = await stf.async("string"); const custom = {};
+    for (const m of st.matchAll(/<numFmt\b[^>]*numFmtId="(\d+)"[^>]*formatCode="([^"]*)"/g)) custom[m[1]] = xmlUnesc(m[2]);
+    const sec = /<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/.exec(st);
+    if (sec){ let i = 0; for (const m of sec[1].matchAll(/<xf\b([^>]*)>/g)){
+      const id = +((/numFmtId="(\d+)"/.exec(m[1]) || [0, 0])[1]);
+      let isD = (id >= 14 && id <= 22) || (id >= 45 && id <= 47);
+      if (!isD && custom[id]){ const c = custom[id].replace(/"[^"]*"/g, "").replace(/\[[^\]]*\]/g, ""); isD = /[dy]/i.test(c) && !/^[#0.,\s%]+$/.test(c); }
+      if (isD) S.dateXf.add(i); i++; } }
+  }
+  S.parsed = {}; S.targets = {}; S.order = []; S.index = new Map(); S.amtIdx = new Map(); S.merged = {};
+}
+function cellValue(attrs, inner){
+  if (!inner) return undefined;
+  const t = (/\bt="(\w+)"/.exec(attrs) || [])[1];
+  if (t === "inlineStr"){ let s = ""; for (const m of inner.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)) s += m[1]; return xmlUnesc(s); }
+  const v = /<v>([^<]*)<\/v>/.exec(inner); if (!v) return undefined;
+  if (t === "s") return S.ss[+v[1]];
+  if (t === "str" || t === "e") return xmlUnesc(v[1]);
+  if (t === "b") return v[1] === "1";
+  const n = parseFloat(v[1]); return isNaN(n) ? v[1] : n;
+}
+function readRow(xml, r){
+  const i = xml.indexOf(`<row r="${r}"`); if (i < 0) return {};
+  const j = xml.indexOf("</row>", i); const seg = xml.slice(i, j < 0 ? i + 200000 : j);
+  const out = {};
+  for (const m of seg.matchAll(/<c r="([A-Z]+)\d+"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)){ const v = cellValue(m[2], m[3]); if (v !== undefined && v !== "") out[colNum(m[1])] = v; }
+  return out;
+}
+
+/* ---------- распознавание устройства листа ---------- */
+function detectLayout(sheetName, hdr, above){
+  const cols = Object.keys(hdr).map(Number).sort((a, b) => a - b);
+  const H = c => normHdr(hdr[c]);
+  const has = t => cols.some(c => H(c) === t);
+  const groups = [];
+  const title = sheetLabel(sheetName);
+  // журнал Континента / транзитов
+  if (has("плательщик") && has("дата оплаты")){
+    const g = {kind: "ledger", title, start: cols[0], c: {}}; let doutCol = 0;
+    for (const c of cols){
+      const h = H(c), set = k => { if (!g.c[k]) g.c[k] = c; };
+      if (h === "дата") set("date"); else if (h === "партнер") set("partner"); else if (h === "плательщик") set("payer");
+      else if (h === "компания тр") set("company"); else if (h === "% транзита") set("pctT");
+      else if (h === "оптправил" || h === "отправил") set("amt"); else if (h === "ставка") set("rate");
+      else if (h === "остаток") set("bal"); else if (h === "дата оплаты"){ set("dOut"); doutCol = c; }
+      else if (h === "контрик кому" && doutCol) set("to");
+      else if ((h === "сумма" || h === "сумма транзита") && doutCol && c > doutCol) set("sumOut");
+      else if (h === "%%" && doutCol && c > doutCol) set("pctOut");
+    }
+    if (g.c.amt && g.c.bal) groups.push(g);
+    const used = new Set(), balAfter = c0 => cols.find(c => c > c0 && H(c) === "итоговая сальдовка");
+    const labelBefore = c0 => { const l = hdr[c0 - 1]; const h = normHdr(l); return l && !["дата","сумма","примечание"].includes(h) ? String(l).trim() : ""; };
+    for (const c of cols){
+      if (H(c) !== "наименование прихода" || H(c - 1) !== "дата" || H(c + 1) !== "сумма") continue;
+      const b = {kind: "bank", title: labelBefore(c - 1) || "Банк", start: c - 1, c: {dIn: c - 1, nIn: c, aIn: c + 1}};
+      const oc = cols.find(x => x > c + 1 && H(x) === "наименование затрат" && H(x - 1) === "дата" && H(x + 1) === "сумма");
+      if (oc){ b.c.dOut = oc - 1; b.c.nOut = oc; b.c.aOut = oc + 1; if (H(oc + 2) === "примечание") b.c.note = oc + 2; used.add(oc); }
+      b.c.bal = balAfter(oc || c); if (b.c.bal) groups.push(b);
+    }
+    for (const c of cols){
+      if (used.has(c) || H(c) !== "наименование затрат" || H(c - 1) !== "дата" || H(c + 1) !== "сумма") continue;
+      const b = {kind: "bank", title: labelBefore(c - 1) || "Затраты", start: c - 1, c: {dOut: c - 1, nOut: c, aOut: c + 1}};
+      b.c.bal = balAfter(c); if (b.c.bal) groups.push(b);
+    }
+    return groups;
+  }
+  // касса: дата / приход / расход / сальдовка
+  const cIn = cols.find(c => H(c) === "приход дс"), cOut = cols.find(c => H(c) === "расход дс");
+  if (cIn && cOut){
+    const date = cols.find(c => H(c) === "дата" && c < cIn), bal = cols.find(c => H(c).startsWith("сальдовка"));
+    if (date && bal){
+      groups.push({kind: "cash", title, start: date, c: {date, comment: date + 1 < cIn ? date + 1 : 0, aIn: cIn, aOut: cOut, bal, who: bal + 1}});
+      return groups;
+    }
+  }
+  // долги
+  const debts = cols.filter(c => H(c) === "сумма долга");
+  if (debts.length){
+    for (const c of debts){
+      const g = {kind: "debt", start: c - 2, c: {date: H(c - 2) === "дата" ? c - 2 : 0, who: c - 1, amt: c, ret: H(c + 1) === "сумма возврата" ? c + 1 : 0, bal: H(c + 2) === "остаток долга" ? c + 2 : 0}};
+      if (H(c + 3) === "примечание") g.c.note = c + 3;
+      g.title = String((above && (above[c - 2] || above[c - 1] || above[c])) || "Долги").trim();
+      if (g.c.ret && g.c.bal) groups.push(g);
+    }
+    return groups;
+  }
+  // выплаты (дивиденды)
+  const periods = cols.filter(c => H(c) === "период выплат");
+  if (periods.length){
+    for (const c of periods){
+      const g = {kind: "table", start: c, c: {}, fields: []};
+      for (let x = c; hdr[x] !== undefined; x++) g.fields.push({col: x, label: String(hdr[x]).trim(), h: H(x)});
+      g.title = String((above && above[c]) || "Выплаты").trim();
+      groups.push(g);
+    }
+    return groups;
+  }
+  // блоки покупателей и поставщиков
+  let cur = null;
+  const flush = () => { if (cur && cur.c.amt && cur.c.bal) groups.push(cur); cur = null; };
+  for (const c of cols){
+    const h = H(c);
+    if (h === "дата"){ flush(); cur = {kind: "block", title: "", start: c, c: {dIn: c}, extras: []}; continue; }
+    if (!cur) continue;
+    if (h === "контр агент" || h === "контрагент") cur.c.ka = c;
+    else if (h === "оптправил" || h === "отправил") cur.c.amt = c;
+    else if (h === "%") cur.c.pct = c;
+    else if (h === "сумма %" || h === "сумма ожидание") {}
+    else if (h === "дата выдачи") cur.c.dOut = c;
+    else if (h === "выдача") cur.c.aOut = c;
+    else if (h === "остаток") cur.c.bal = c;
+    else if (h === "примечание"){ cur.c.note = c; flush(); }
+    else if (!cur.title && h !== "проект"){ cur.title = String(hdr[c]).trim(); cur.c.title = c; }
+    else cur.extras.push({col: c, label: String(hdr[c]).trim()});
+  }
+  flush();
+  return groups;
+}
+function makeTarget(sheet, g, hdrRow){
+  const id = sheet + "|" + g.start, c = g.c;
+  const F = (key, label, col, type) => col ? {key, label, col, type} : null;
+  let inF = [], outF = [], retF = [];
+  if (g.kind === "block"){
+    inF = [F("date", "Дата", c.dIn, "date"), F("title", "Клиент / точка", c.title, "text"), ...(g.extras || []).map((e, i) => F("x" + i, e.label, e.col, "text")),
+      F("ka", "Контрагент", c.ka, "text"), F("amt", "Отправил", c.amt, "num"), F("pct", "%", c.pct, "num")];
+    outF = [F("date", "Дата выдачи", c.dOut, "date"), F("amt", "Выдача", c.aOut, "num"), F("note", "Примечание", c.note, "text")];
+  } else if (g.kind === "bank"){
+    inF = [F("date", "Дата", c.dIn, "date"), F("name", "Наименование прихода", c.nIn, "text"), F("amt", "Сумма", c.aIn, "num")];
+    outF = [F("date", "Дата", c.dOut, "date"), F("name", "Наименование затрат", c.nOut, "text"), F("amt", "Сумма", c.aOut, "num"), F("note", "Примечание", c.note, "text")];
+  } else if (g.kind === "cash"){
+    inF = [F("date", "Дата", c.date, "date"), F("amt", "Приход", c.aIn, "num"), F("who", "От кого / назначение", c.who, "text"), F("comment", "Пометка", c.comment, "text")];
+    outF = [F("date", "Дата", c.date, "date"), F("amt", "Расход", c.aOut, "num"), F("who", "Кому / назначение", c.who, "text"), F("comment", "Пометка", c.comment, "text")];
+  } else if (g.kind === "debt"){
+    inF = [F("date", "Дата", c.date, "date"), F("who", "Кто", c.who, "text"), F("amt", "Сумма долга", c.amt, "num"), F("note", "Примечание", c.note, "text")];
+    retF = [F("amt", "Сумма возврата", c.ret, "num")];
+  } else if (g.kind === "table"){
+    let xi = 0;
+    inF = g.fields.map(f => f.h === "дата" ? F("date", "Дата", f.col, "date") : f.h === "сумма" ? F("amt", "Сумма", f.col, "num") : F(f.h === "кому" ? "who" : "x" + (xi++), f.label, f.col, "text"));
+  } else {
+    inF = [F("date", "Дата", c.date, "date"), F("partner", "Партнёр", c.partner, "text"), F("payer", "Плательщик", c.payer, "text"),
+      F("company", "Компания ТР", c.company, "text"), F("pctT", "% транзита", c.pctT, "num"), F("amt", "Отправил", c.amt, "num"), F("rate", "Ставка", c.rate, "num")];
+    outF = [F("date", "Дата оплаты", c.dOut, "date"), F("to", "Кому", c.to, "text"), F("amt", "Сумма", c.sumOut, "num"), F("pctOut", "%%", c.pctOut, "num")];
+  }
+  inF = inF.filter(Boolean); outF = outF.filter(Boolean); retF = retF.filter(Boolean);
+  const ptrKeys = ["title", "ka", "amt", "payer", "partner", "to", "name", "who", "comment"];
+  const ptr = list => list.filter(f => ptrKeys.includes(f.key) || f.key.startsWith("x")).map(f => f.col);
+  const tt = sheetLabel(sheet);
+  return {
+    id, sheet, kind: g.kind, hdrRow, dir: /отда/i.test(g.title || "") ? -1 : 1,
+    title: g.kind === "block" ? (g.title || "Блок " + colName(g.start)) : g.kind === "bank" ? `${tt} · ${g.title}` : (g.kind === "debt" || g.kind === "table") ? `${g.title}` : g.title,
+    balCol: c.bal || 0, retCol: c.ret || 0, amtCol: c.amt || 0,
+    shared: g.kind === "cash",
+    parts: {in: {fields: inF, ptr: ptr(inF), last: 0}, out: {fields: outF, ptr: ptr(outF), last: 0}, ret: {fields: retF, ptr: [], last: 0}},
+    lastBalRow: 0, balance: null, rows: [], months: {}
+  };
+}
+function partLabel(t, part){
+  if (part === "ret") return "Возврат долга";
+  if (t.kind === "block") return part === "in" ? "Поступление" : "Выдача";
+  if (t.kind === "bank" || t.kind === "cash") return part === "in" ? "Приход" : "Расход";
+  if (t.kind === "debt") return "Новый долг";
+  if (t.kind === "table") return "Запись";
+  return part === "in" ? "Поступление" : "Списание";
+}
+/* ---------- чтение листа ---------- */
+async function parseSheet(name, onProgress){
+  const sh = S.sheets.find(s => s.name.trim() === name.trim());
+  if (!sh) return null;
+  const xml = await S.zip.file(sh.path).async("string");
+  let groups = [], hdrRow = 1;
+  for (let r = 1; r <= 4; r++){ const g = detectLayout(sh.name, readRow(xml, r), r > 1 ? readRow(xml, r - 1) : {}); if (g.length){ groups = g; hdrRow = r; break; } }
+  const targets = groups.map(g => makeTarget(sh.name, g, hdrRow));
+  S.merged[sh.name] = [...xml.matchAll(/<mergeCell ref="([A-Z]+)(\d+):([A-Z]+)(\d+)"/g)].map(m => ({c1: colNum(m[1]), r1: +m[2], c2: colNum(m[3]), r2: +m[4]}));
+  const colOwner = new Map();
+  for (const t of targets){
+    if (t.balCol) colOwner.set(t.balCol, t);
+    if (t.retCol) colOwner.set(t.retCol, t);
+    for (const p of ["in", "out", "ret"]) for (const f of t.parts[p].fields) colOwner.set(f.col, t);
+  }
+  const data = new Map(), fRefs = {};
+  const re = /<c r="([A-Z]+)(\d+)"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;
+  let m, n = 0;
+  while ((m = re.exec(xml))){
+    if (!m[4]) continue;
+    const col = colNum(m[1]); const t = colOwner.get(col); if (!t) continue;
+    const row = +m[2]; if (row <= hdrRow) continue;
+    const v = cellValue(m[3], m[4]); if (v === undefined || v === "") continue;
+    const isF = m[4].indexOf("<f") >= 0;
+    let r = data.get(row); if (!r){ r = {}; data.set(row, r); }
+    r[col] = v;
+    if (col === t.balCol && isF && row > t.lastBalRow) t.lastBalRow = row;
+    if (isF && t.kind === "ledger" && col === t.amtCol0){ const fm = /<f>([^<]*)<\/f>/.exec(m[4]); if (fm) fRefs[row] = {t, f: fm[1]}; }
+    if ((++n & 0x3fff) === 0 && onProgress) await onProgress();
+  }
+  const rowsSorted = [...data.keys()].sort((a, b) => a - b);
+  for (const t of targets){
+    if (t.kind === "debt") t.balance = 0;
+    for (const p of ["in", "out"]){
+      const part = t.parts[p]; if (!part.fields.length) continue;
+      const amtF = part.fields.find(f => f.key === "amt"), dateF = part.fields.find(f => f.key === "date");
+      for (const row of rowsSorted){
+        const r = data.get(row);
+        if (isMerged(t, row)) continue;
+        if (t.kind === "cash" && p === "in" && !(Number(r[t.parts.in.fields.find(f => f.key === "amt").col]))){
+          const ao = Number(r[t.parts.out.fields.find(f => f.key === "amt").col]); if (ao) continue;
+        }
+        if (t.kind === "cash" && p === "out" && !Number(r[amtF.col])) continue;
+        let filled = false;
+        for (const c of part.ptr){ const v = r[c]; if (v !== undefined && v !== "" && v !== 0){ filled = true; break; } }
+        if (!filled) continue;
+        if (row > part.last) part.last = row;
+        const rec = {row, part: p, v: {}};
+        for (const f of part.fields) if (r[f.col] !== undefined) rec.v[f.key] = r[f.col];
+        if (t.balCol && r[t.balCol] !== undefined) rec.bal = r[t.balCol];
+        if (t.kind === "debt"){ rec.ret = Number(r[t.retCol]) || 0; rec.bal = typeof r[t.balCol] === "number" ? r[t.balCol] : 0; t.balance += rec.bal; }
+        t.rows.push(rec);
+        const amt = amtF ? Number(r[amtF.col]) || 0 : 0;
+        const dv = dateF ? r[dateF.col] : null;
+        if (amt){
+          const key = Math.round(Math.abs(amt) * 100);
+          let a = S.amtIdx.get(key); if (!a){ a = []; S.amtIdx.set(key, a); }
+          a.push({targetId: t.id, row, part: p, date: typeof dv === "number" ? dv : null});
+        }
+        if (typeof dv === "number" && amt){
+          const k = monthKey(dv); const mo = t.months[k] || (t.months[k] = {inAmt: 0, inPct: 0, out: 0, n: 0});
+          if (p === "in" && t.kind !== "table"){ mo.inAmt += amt; mo.n++; const pct = t.kind === "block" ? Number(rec.v.pct) || 0 : t.kind === "ledger" ? Number(rec.v.pctT) || 0 : 0; mo.inPct += amt * pct / 100; }
+          else if (t.kind === "table"){ if (t.dir < 0) mo.out += amt; else mo.inAmt += amt; }
+          else mo.out += amt;
+        }
+        const addIdx = (nm, extra) => {
+          const k = normName(nm); if (!k || k.length < 3) return;
+          let arr = S.index.get(k); if (!arr){ arr = []; S.index.set(k, arr); }
+          const ex = arr.find(e => e.targetId === t.id && e.part === p);
+          if (ex){ if (row >= ex.row) Object.assign(ex, {row}, extra); } else arr.push(Object.assign({targetId: t.id, part: p, row}, extra));
+        };
+        const sv = k => typeof rec.v[k] === "string" ? rec.v[k] : null;
+        if (t.kind === "block" && p === "in"){ if (sv("title")) addIdx(sv("title"), {pct: rec.v.pct, ka: rec.v.ka}); if (sv("ka")) addIdx(sv("ka"), {pct: rec.v.pct}); }
+        if (t.kind === "ledger" && p === "in"){ if (sv("payer")) addIdx(sv("payer"), {partner: rec.v.partner, rate: rec.v.rate, pctT: rec.v.pctT}); if (sv("partner")) addIdx(sv("partner"), {partner: rec.v.partner, rate: rec.v.rate, pctT: rec.v.pctT}); }
+        if (t.kind === "ledger" && p === "out" && sv("to")) addIdx(sv("to"), {pctOut: rec.v.pctOut});
+        if (t.kind === "bank" && sv("name")) addIdx(sv("name"), {});
+        if (t.kind === "cash" && sv("who")) addIdx(sv("who"), {});
+      }
+    }
+    if (t.balCol && t.kind !== "debt" && t.lastBalRow){ const r = data.get(t.lastBalRow); t.balance = r && typeof r[t.balCol] === "number" ? r[t.balCol] : null; }
+    if (t.shared){ const mx = Math.max(t.parts.in.last, t.parts.out.last); t.parts.in.last = t.parts.out.last = mx; }
+    t.rows.sort((a, b) => b.row - a.row || (a.part === "in" ? -1 : 1));
+    t.empty = !t.rows.some(r => Number(r.v.amt));
+    S.targets[t.id] = t; S.order.push(t.id);
+  }
+  // связка «оптправил» → строка банковского раздела → наименование прихода
+  const banks = targets.filter(t => t.kind === "bank" && t.parts.in.fields.length);
+  for (const [row, {t, f}] of Object.entries(fRefs)){
+    const r = data.get(+row) || {};
+    for (const ref of f.matchAll(/\$?([A-Z]{1,3})\$?(\d+)/g)){
+      const b = banks.find(b => b.parts.in.fields.find(x => x.key === "amt").col === colNum(ref[1])); if (!b) continue;
+      const nm = (data.get(+ref[2]) || {})[b.parts.in.fields.find(x => x.key === "name").col];
+      const k = normName(nm); if (typeof nm !== "string" || k.length < 3) continue;
+      let arr = S.index.get(k); if (!arr){ arr = []; S.index.set(k, arr); }
+      const val = key => { const fl = t.parts.in.fields.find(x => x.key === key); return fl ? r[fl.col] : undefined; };
+      const extra = {row: +row, partner: val("partner"), rate: val("rate"), pctT: val("pctT"), payer: val("payer"), viaBank: true};
+      const ex = arr.find(e => e.targetId === t.id && e.part === "in");
+      if (ex){ if (+row >= ex.row) Object.assign(ex, extra); } else arr.push(Object.assign({targetId: t.id, part: "in"}, extra));
+    }
+  }
+  S.parsed[sh.name.trim()] = {targets: targets.map(t => t.id)};
+  return targets;
+}
+// amtCol0: колонка «оптправил» журнала — чтобы ловить формулы-ссылки
+const _mk = makeTarget;
+makeTarget = function(sheet, g, hdrRow){ const t = _mk(sheet, g, hdrRow); if (t.kind === "ledger") t.amtCol0 = g.c.amt; return t; };
+
+async function parseAll(){
+  S.loading = {i: 0, n: WORK_SHEETS.length, name: ""}; render();
+  for (let i = 0; i < WORK_SHEETS.length; i++){
+    S.loading = {i, n: WORK_SHEETS.length, name: WORK_SHEETS[i]}; updateProgress();
+    await new Promise(r => setTimeout(r, 0));
+    try{ await parseSheet(WORK_SHEETS[i], () => new Promise(r => setTimeout(r, 0))); }catch(e){ console.error("лист", WORK_SHEETS[i], e); }
+  }
+  S.loading = null;
+  if (!S.settings.pins){
+    S.settings.pins = S.order.filter(id => { const t = S.targets[id]; return /Континент_ДТ/.test(t.sheet) && (t.kind === "ledger" || (t.kind === "bank" && /СКЛАД/i.test(t.title))) || t.kind === "cash"; }).slice(0, 4);
+    await Store.set("settings", S.settings);
+  }
+  render();
+}
+function updateProgress(){
+  const el = $("#prog"); if (!el || !S.loading) return;
+  el.querySelector("i").style.width = Math.round(S.loading.i / S.loading.n * 100) + "%";
+  const t = $("#progText"); if (t) t.textContent = `Читаю лист «${S.loading.name}» (${S.loading.i + 1} из ${S.loading.n})`;
+}
+
+/* ================= операции ================= */
+function opsOf(t){ return S.ops.filter(o => o.targetId === t.id); }
+function lastValue(t, part, key){
+  for (const op of [...S.ops].reverse()) if (op.targetId === t.id && op.part === part && op.values[key] !== undefined && op.values[key] !== "") return op.values[key];
+  for (const r of t.rows) if (r.part === part && r.v[key] !== undefined && r.v[key] !== "") return r.v[key];
+  return "";
+}
+function isMerged(t, row){
+  const ms = S.merged[t.sheet] || []; const cols = [...t.parts.in.fields, ...t.parts.out.fields].map(f => f.col);
+  return ms.some(m => row >= m.r1 && row <= m.r2 && cols.some(c => c >= m.c1 && c <= m.c2));
+}
+function nextRow(t, part){
+  const parts = t.shared ? ["in", "out"] : [part];
+  let r = Math.max(...parts.map(p => t.parts[p].last), t.hdrRow);
+  for (const op of S.ops) if (op.targetId === t.id && op.part !== "ret" && (t.shared || op.part === part) && op.row > r) r = op.row;
+  return r + 1;
+}
+function opDelta(t, op){
+  const v = op.values, amt = Number(v.amt) || 0;
+  if (t.kind === "table") return 0;
+  if (op.part === "ret") return -amt;
+  if (op.part === "in"){ const pct = t.kind === "block" ? Number(v.pct) || 0 : t.kind === "ledger" ? Number(v.pctT) || 0 : 0; return amt - amt * pct / 100; }
+  return -amt;
+}
+function balanceOf(t){
+  if (t.balance == null) return null;
+  let b = t.balance; for (const op of S.ops) if (op.targetId === t.id) b += opDelta(t, op);
+  return b;
+}
+async function addOp(t, part, values, source, link, row){
+  if (part !== "ret"){
+    row = nextRow(t, part);
+    if (["block", "ledger", "bank", "cash"].includes(t.kind) && (!t.lastBalRow || row > t.lastBalRow))
+      throw new Error(`В листе нет подготовленной строки ${row} с формулой остатка. Протяните формулы в Excel ниже и загрузите таблицу заново.`);
+    if (isMerged(t, row)) throw new Error(`Строка ${row} занята итоговой строкой листа. Добавьте строки в Excel и загрузите таблицу заново.`);
+  }
+  const op = {id: uid(), ts: Date.now(), targetId: t.id, sheet: t.sheet, part, row, values, source: source || "вручную", link: link || null};
+  S.ops.push(op); await Store.set("ops", S.ops);
+  return op;
+}
+async function updateOp(op, values){ op.values = values; await Store.set("ops", S.ops); }
+async function removeOp(id){
+  S.ops = S.ops.filter(o => o.id !== id); await Store.set("ops", S.ops);
+  for (const c of S.cands) if (c.done){ c.done = c.done.filter(d => d.opId !== id); if (!c.done.length) c.done = null; }
+  await Store.set("cands", S.cands);
+}
+
+/* ================= запись в xlsx ================= */
+function findCellBounds(xml, ref, from){
+  const i = xml.indexOf(`<c r="${ref}"`, from || 0); if (i < 0) return null;
+  const j = xml.indexOf(">", i);
+  if (xml[j - 1] === "/") return {start: i, end: j + 1, open: xml.slice(i, j + 1), inner: ""};
+  const k = xml.indexOf("</c>", j);
+  return {start: i, end: k + 4, open: xml.slice(i, j + 1), inner: xml.slice(j + 1, k)};
+}
+const styleAttr = open => { const m = /\bs="(\d+)"/.exec(open); return m ? m[1] : null; };
+function styleFromAbove(xml, col, row, wantDate){
+  for (let k = 1; k <= 40; k++){
+    const up = findCellBounds(xml, colName(col) + (row - k)); const us = up ? styleAttr(up.open) : null;
+    if (us != null && (!wantDate || S.dateXf.has(+us))) return us;
+  }
+  return null;
+}
+function cellXml(ref, s, e, cb){
+  const sa = s != null ? ` s="${s}"` : "";
+  if (e.append){
+    const old = cb && cb.inner ? cb.inner : "";
+    const f = /<f>([^<]*)<\/f>/.exec(old), v = /<v>([^<]*)<\/v>/.exec(old);
+    const oldV = v ? parseFloat(v[1]) || 0 : 0;
+    const add = e.addends.map(a => String(a)).join("+");
+    const sum = oldV + e.addends.reduce((x, y) => x + y, 0);
+    if (f) return `<c r="${ref}"${sa}><f>${xmlEsc(xmlUnesc(f[1]))}+${add}</f><v>${sum}</v></c>`;
+    if (v && oldV) return `<c r="${ref}"${sa}><f>${oldV}+${add}</f><v>${sum}</v></c>`;
+    return e.addends.length > 1 ? `<c r="${ref}"${sa}><f>${add}</f><v>${sum}</v></c>` : `<c r="${ref}"${sa}><v>${sum}</v></c>`;
+  }
+  if (e.formula) return `<c r="${ref}"${sa}><f>${e.formula}</f><v>${typeof e.value === "number" ? e.value : 0}</v></c>`;
+  if (typeof e.value === "number") return `<c r="${ref}"${sa}><v>${e.value}</v></c>`;
+  return `<c r="${ref}"${sa} t="inlineStr"><is><t xml:space="preserve">${xmlEsc(e.value)}</t></is></c>`;
+}
+function applyEdits(xml, edits){
+  const byRow = new Map();
+  for (const e of edits){ if (!byRow.has(e.row)) byRow.set(e.row, []); byRow.get(e.row).push(e); }
+  const reps = [];
+  for (const [row, list] of byRow){
+    list.sort((a, b) => a.col - b.col);
+    const ri = xml.indexOf(`<row r="${row}"`);
+    if (ri < 0){
+      const cells = list.map(e => { const s = styleFromAbove(xml, e.col, row, e.type === "date") ?? styleFromAbove(xml, e.col, row, false); return cellXml(colName(e.col) + row, s, e, null); }).join("");
+      let at = -1;
+      for (const m of xml.matchAll(/<row r="(\d+)"/g)){ if (+m[1] > row){ at = m.index; break; } }
+      if (at < 0) at = xml.indexOf("</sheetData>");
+      if (at < 0) throw new Error("Не найден блок данных листа.");
+      reps.push({start: at, end: at, ord: 0, text: `<row r="${row}">${cells}</row>`});
+      continue;
+    }
+    const rTagEnd = xml.indexOf(">", ri);
+    if (xml[rTagEnd - 1] === "/"){
+      const cells = list.map(e => cellXml(colName(e.col) + row, styleFromAbove(xml, e.col, row, e.type === "date"), e, null)).join("");
+      reps.push({start: ri, end: rTagEnd + 1, ord: 0, text: xml.slice(ri, rTagEnd - 1) + ">" + cells + "</row>"});
+      continue;
+    }
+    const rEnd = xml.indexOf("</row>", rTagEnd);
+    for (const e of list){
+      const ref = colName(e.col) + row;
+      const cb = findCellBounds(xml, ref, ri); const inRow = cb && cb.start < rEnd ? cb : null;
+      if (inRow && inRow.inner.indexOf("<f") >= 0 && !e.append){
+        if (e.ifNoFormula) continue;
+        throw new Error(`Ячейка ${ref} содержит формулу, запись отменена.`);
+      }
+      let s = inRow ? styleAttr(inRow.open) : null;
+      if (e.type === "date" && (s == null || !S.dateXf.has(+s))) s = styleFromAbove(xml, e.col, row, true) ?? s;
+      if (s == null) s = styleFromAbove(xml, e.col, row, false);
+      const text = cellXml(ref, s, e, inRow);
+      if (inRow){ reps.push({start: inRow.start, end: inRow.end, ord: e.col, text}); continue; }
+      const seg = xml.slice(rTagEnd + 1, rEnd); let at = rEnd;
+      for (const m of seg.matchAll(/<c r="([A-Z]+)\d+"/g)){ if (colNum(m[1]) > e.col){ at = rTagEnd + 1 + m.index; break; } }
+      reps.push({start: at, end: at, ord: e.col, text});
+    }
+  }
+  reps.sort((a, b) => a.start - b.start || a.ord - b.ord);
+  const out = []; let pos = 0;
+  for (const r of reps){ if (r.start < pos) throw new Error("Пересечение правок, запись отменена."); out.push(xml.slice(pos, r.start), r.text); pos = r.end; }
+  out.push(xml.slice(pos));
+  return out.join("");
+}
+function opEdits(op){
+  const t = S.targets[op.targetId]; if (!t) return [];
+  if (op.part === "ret"){ const a = Number(op.values.amt); return a ? [{row: op.row, col: t.retCol, append: true, addends: [a]}] : []; }
+  const edits = [];
+  for (const f of t.parts[op.part].fields){
+    let v = op.values[f.key];
+    if (v === undefined || v === null || v === "") continue;
+    if (f.type === "date") v = serialFromIso(v);
+    else if (f.type === "num"){ v = Number(String(v).replace(",", ".")); if (isNaN(v)) continue; }
+    else v = String(v);
+    const e = {row: op.row, col: f.col, value: v, type: f.type};
+    if (f.key === "amt" && op.link) e.formula = colName(op.link.col) + op.link.row;
+    edits.push(e);
+  }
+  if (t.kind === "debt" && t.balCol){
+    const a = Number(op.values.amt) || 0;
+    edits.push({row: op.row, col: t.balCol, formula: `${colName(t.amtCol)}${op.row}-${colName(t.retCol)}${op.row}`, value: a, ifNoFormula: true});
+  }
+  return edits;
+}
+async function buildXlsx(){
+  const zip = await JSZip.loadAsync(S.baseBuf);
+  const bySheet = {};
+  for (const op of S.ops){ (bySheet[op.sheet] = bySheet[op.sheet] || []).push(...opEdits(op)); }
+  for (const name of Object.keys(bySheet)){
+    const sh = S.sheets.find(s => s.name === name); if (!sh) continue;
+    const merged = []; const seen = new Map();
+    for (const e of bySheet[name]){
+      const k = e.row + ":" + e.col;
+      if (e.append && seen.has(k)){ seen.get(k).addends.push(...e.addends); continue; }
+      seen.set(k, e); merged.push(e);
+    }
+    const xml = await zip.file(sh.path).async("string");
+    zip.file(sh.path, applyEdits(xml, merged));
+  }
+  let wb = await zip.file("xl/workbook.xml").async("string");
+  if (/<calcPr\b/.test(wb)) wb = wb.replace(/<calcPr\b([^>]*?)(\/?)>/, (m, a, sl) => `<calcPr${a.replace(/\sfullCalcOnLoad="[^"]*"/, "")} fullCalcOnLoad="1"${sl}>`);
+  else wb = wb.replace("</workbook>", '<calcPr fullCalcOnLoad="1"/></workbook>');
+  zip.file("xl/workbook.xml", wb);
+  return zip.generateAsync({type: "blob", compression: "DEFLATE", compressionOptions: {level: 6}, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+}
+async function saveBlob(blob, filename){
+  if (window.claude && typeof window.claude.use === "function"){
+    try{ const dl = await window.claude.use("downloads"); if (dl){ await dl.save({filename, data: blob}); return "saved"; } }
+    catch(e){ if (e && e.code === "declined") return "declined"; console.warn(e); }
+  }
+  try{ const file = new File([blob], filename, {type: blob.type}); if (navigator.canShare && navigator.canShare({files: [file]})){ await navigator.share({files: [file], title: filename}); return "shared"; } }
+  catch(e){ if (e && e.name === "AbortError") return "declined"; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  return "saved";
+}
+/* ================= разбор документов ================= */
+let pdfjsLib = null;
+async function getPdfjs(){
+  if (pdfjsLib) return pdfjsLib;
+  pdfjsLib = await import(PDFJS);
+  try{ pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER; }catch{}
+  return pdfjsLib;
+}
+async function pdfPages(buf){
+  const lib = await getPdfjs();
+  const doc = await lib.getDocument({data: new Uint8Array(buf), isEvalSupported: false}).promise;
+  const pages = [];
+  for (let p = 1; p <= doc.numPages; p++){
+    const pg = await doc.getPage(p); const tc = await pg.getTextContent();
+    const items = tc.items.filter(i => i.str && i.str.trim()).map(i => ({x: i.transform[4], y: i.transform[5], w: i.width, s: i.str.trim()}));
+    items.sort((a, b) => (b.y - a.y) || (a.x - b.x));
+    pages.push(items);
+  }
+  return pages;
+}
+function linesOf(items){
+  const lines = [];
+  for (const it of items){ const l = lines.find(l => Math.abs(l.y - it.y) < 3); if (l) l.items.push(it); else lines.push({y: it.y, items: [it]}); }
+  lines.sort((a, b) => b.y - a.y);
+  return lines.map(l => ({y: l.y, items: l.items.sort((a, b) => a.x - b.x), text: l.items.map(i => i.s).join(" ")}));
+}
+const DATE_RE = /^(\d{2})\.(\d{2})\.(\d{4})/;
+const dmyToIso = s => { const m = /(\d{2})\.(\d{2})\.(\d{2,4})/.exec(s); if (!m) return ""; const y = m[3].length === 2 ? "20" + m[3] : m[3]; return `${y}-${m[2]}-${m[1]}`; };
+const SERVICE_RE = /перевод собственных средств|выплата процентов по депозит|возврат средств по депозит|проценты по кредитному договору|погашение задолженности по траншу|комисси[яи] за/i;
+
+function parseStatement(pages){
+  const all = pages.map(p => linesOf(p).map(l => l.text).join("\n")).join("\n");
+  const client = ((/Клиент\s+(.+)/.exec(all) || [])[1] || "").trim();
+  const inn = (/ИНН\s+(\d{10,12})/.exec(all) || [])[1] || "";
+  const acc = (/Сч[её]т\s+(\d{20})/.exec(all) || [])[1] || "";
+  const period = ((/Выписка по сч[её]ту\s+(.+)/i.exec(all) || [])[1] || "").trim();
+  const ops = []; let curDate = "", cur = null;
+  const finish = () => { if (cur && cur.amount != null) ops.push(cur); cur = null; };
+  for (const items of pages){
+    const hK = items.find(i => i.s === "Контрагент"), hN = items.find(i => /^Назначение/.test(i.s));
+    const hD = items.find(i => i.s === "Дебет"), hC = items.find(i => i.s === "Кредит");
+    if (!hK || !hN || !hD || !hC) continue;
+    const hy = hK.y, xK = hK.x, xN = hN.x, mid = ((hD.x + hD.w) + (hC.x + hC.w)) / 2;
+    for (const it of items){
+      const s = it.s;
+      if (/^Количество операций|^Оборот за весь период|^Исходящий остаток/.test(s)){ finish(); continue; }
+      if (it.x < xK - 4){
+        if (DATE_RE.test(s)){ finish(); curDate = dmyToIso(s); continue; }
+        if (it.y < hy - 2 && /^\d+$/.test(s)){ finish(); cur = {num: s, date: curDate, name: [], purpose: [], inn: "", amount: null, dir: ""}; }
+        continue;
+      }
+      if (!cur || it.y >= hy - 2) continue;
+      if (it.x < xN - 4){
+        let m;
+        if ((m = /^ИНН:?\s*(\d{10,12})/.exec(s))) cur.inn = m[1];
+        else if (/^КПП|^БИК|^Сч[её]т/.test(s)) {}
+        else if (!cur.inn) cur.name.push(s);
+        continue;
+      }
+      if (/^-?[\d\s\u00a0\u202f]+,\d{2}$/.test(s) && it.x > xN + 120){ cur.amount = parseMoney(s); cur.dir = (it.x + it.w) > mid ? "in" : "out"; continue; }
+      cur.purpose.push(s);
+    }
+  }
+  finish();
+  return {kind: "statement", label: `Выписка ${period}`.trim(), client, inn, acc, ops: ops.map(o => ({
+    type: "statement", date: o.date, amount: o.amount, dir: o.dir, name: o.name.join(" ").replace(/\s+/g, " "), inn: o.inn,
+    purpose: o.purpose.join(" ").replace(/\s+/g, " "), num: o.num,
+    service: SERVICE_RE.test(o.purpose.join(" ")) || (!!o.inn && o.inn === inn)
+  }))};
+}
+const RU_MONTHS = {"января":1,"февраля":2,"марта":3,"апреля":4,"мая":5,"июня":6,"июля":7,"августа":8,"сентября":9,"октября":10,"ноября":11,"декабря":12};
+function parseCheckLines(txt){
+  const after = lbl => { const i = txt.findIndex(t => t.toLowerCase().startsWith(lbl)); if (i < 0) return ""; const same = txt[i].slice(lbl.length).replace(/^[:\s]+/, ""); return same || (txt[i + 1] || ""); };
+  let date = "";
+  for (const t of txt){
+    const m = /(\d{1,2})\s+([а-я]+)\s+(\d{4})/i.exec(t);
+    if (m && RU_MONTHS[m[2].toLowerCase()]){ date = `${m[3]}-${String(RU_MONTHS[m[2].toLowerCase()]).padStart(2,"0")}-${m[1].padStart(2,"0")}`; break; }
+    const d = /(\d{2}\.\d{2}\.\d{4})/.exec(t); if (d){ date = dmyToIso(d[1]); break; }
+  }
+  const sender = after("фио отправителя") || after("отправитель");
+  const recip = after("фио получателя") || after("получатель");
+  const amount = parseMoney(after("сумма перевода") || after("сумма"));
+  if (!amount) return null;
+  return {kind: "check", label: "Чек", ops: [{type: "check", date, amount, dir: "out", name: sender, recipient: recip, inn: "", purpose: `${sender || "?"} → ${recip || "?"}`, service: false}]};
+}
+function parsePayOrder(items){
+  const lines = linesOf(items); const all = lines.map(l => l.text).join("\n");
+  const num = (/ПЛАТЕЖНОЕ ПОРУЧЕНИЕ\s*№\s*(\d+)/i.exec(all) || [])[1] || "";
+  let date = ""; const hl = lines.find(l => /ПЛАТЕЖНОЕ ПОРУЧЕНИЕ/i.test(l.text)); if (hl) date = dmyToIso(hl.text);
+  let amount = null; for (const it of items){ const m = /^(\d+)-(\d{2})$/.exec(it.s); if (m){ amount = +(m[1] + "." + m[2]); break; } }
+  const innLines = lines.filter(l => /ИНН/.test(l.text) && /\d{10,12}/.test(l.text));
+  const party = l => {
+    if (!l) return {inn: "", name: ""};
+    const inn = (/(\d{10,12})/.exec(l.text.replace(/КПП\s*\d+/, "")) || [])[1] || "";
+    const below = lines.filter(x => x.y < l.y - 2 && x.y > l.y - 40);
+    const nm = below.length ? below[0].items.filter(i => i.x < 330 && !/^(Плательщик|Получатель|Сч\.|ИНН|КПП)/.test(i.s)).map(i => i.s).join(" ") : "";
+    return {inn, name: nm};
+  };
+  const payer = party(innLines[0]), recip = party(innLines[1]);
+  const lp = lines.find(l => /^Получатель$/.test(l.items[0]?.s || "")), ln = lines.find(l => /Назначение платежа/.test(l.text));
+  let purpose = ""; if (lp && ln) purpose = lines.filter(l => l.y < lp.y - 2 && l.y > ln.y + 2).map(l => l.items.filter(i => i.x < 400).map(i => i.s).join(" ")).join(" ").trim();
+  return orderResult({num, date, amount, payer, recip, purpose});
+}
+function orderResult({num, date, amount, payer, recip, purpose}){
+  const own = S.settings.ownInn || [];
+  const dir = own.includes(payer.inn) ? "out" : "in";
+  const other = dir === "out" ? recip : payer;
+  return {kind: "order", label: `Платёжное поручение${num ? " № " + num : ""}`, ops: [{type: "order", date, amount, dir, name: other.name, inn: other.inn, purpose, num,
+    service: !!own.length && own.includes(payer.inn) && own.includes(recip.inn)}]};
+}
+
+/* ---------- Word, Excel, текст ---------- */
+async function docxLines(buf){
+  const z = await JSZip.loadAsync(buf); const f = z.file("word/document.xml"); if (!f) throw new Error("Файл Word повреждён.");
+  const x = await f.async("string"); const lines = [];
+  for (const p of x.split(/<\/w:p>/)){ const t = [...p.matchAll(/<w:t\b[^>]*>([^<]*)<\/w:t>|<w:tab\/>/g)].map(m => m[1] !== undefined ? xmlUnesc(m[1]) : "\t").join("").trim(); if (t) lines.push(t); }
+  return lines;
+}
+async function xlsxRows(buf){
+  const z = await JSZip.loadAsync(buf);
+  const ssx = z.file("xl/sharedStrings.xml"); const ss = [];
+  if (ssx){ const x = await ssx.async("string"); for (const m of x.matchAll(/<si>([\s\S]*?)<\/si>/g)){ let t = ""; for (const tm of m[1].matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)) t += tm[1]; ss.push(xmlUnesc(t)); } }
+  const sheetFile = Object.keys(z.files).filter(n => /^xl\/worksheets\/sheet\d+\.xml$/.test(n)).sort()[0];
+  if (!sheetFile) return [];
+  const x = await z.file(sheetFile).async("string"); const rows = [];
+  for (const rm of x.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)){
+    const row = [];
+    for (const m of rm[1].matchAll(/<c r="([A-Z]+)\d+"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)){
+      const t = (/\bt="(\w+)"/.exec(m[2]) || [])[1]; let v;
+      if (m[3]){ if (t === "inlineStr") v = xmlUnesc(((/<t\b[^>]*>([\s\S]*?)<\/t>/.exec(m[3])) || [])[1] || ""); else { const vv = (/<v>([^<]*)<\/v>/.exec(m[3]) || [])[1]; v = t === "s" ? ss[+vv] : t === "str" ? vv : vv !== undefined ? parseFloat(vv) : undefined; } }
+      if (v !== undefined && v !== "") row[colNum(m[1]) - 1] = v;
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+function tableToOps(rows){
+  // ищем строку заголовка: дата + (дебет/кредит или сумма)
+  for (let h = 0; h < Math.min(rows.length, 30); h++){
+    const hr = (rows[h] || []).map(v => normHdr(v));
+    const find = re => hr.findIndex(v => v && re.test(v));
+    const cD = find(/^дата/), cDeb = find(/дебет|списан|расход/), cCr = find(/кредит|поступ|приход/), cSum = find(/^сумма/);
+    if (cD < 0 || (cDeb < 0 && cCr < 0 && cSum < 0)) continue;
+    const cName = find(/контрагент|наименование|получатель|плательщик|корреспондент/), cPur = find(/назначение/), cInn = find(/инн/);
+    const ops = [];
+    for (const r of rows.slice(h + 1)){
+      if (!r) continue;
+      const dv = r[cD]; let date = "";
+      if (typeof dv === "number" && dv > 30000) date = serialToDate(dv).toISOString().slice(0, 10); else if (dv) date = dmyToIso(String(dv));
+      if (!date) continue;
+      const num = v => typeof v === "number" ? v : parseMoney(v);
+      let amount = null, dir = "";
+      if (cDeb >= 0 && num(r[cDeb])){ amount = Math.abs(num(r[cDeb])); dir = "out"; }
+      else if (cCr >= 0 && num(r[cCr])){ amount = Math.abs(num(r[cCr])); dir = "in"; }
+      else if (cSum >= 0 && num(r[cSum])){ const n = num(r[cSum]); amount = Math.abs(n); dir = n < 0 ? "out" : "in"; }
+      if (!amount) continue;
+      const name = cName >= 0 ? String(r[cName] ?? "") : "", purpose = cPur >= 0 ? String(r[cPur] ?? "") : "";
+      const inn = cInn >= 0 ? String(r[cInn] ?? "").replace(/\D/g, "") : ((/ИНН\s*(\d{10,12})/.exec(name) || [])[1] || "");
+      ops.push({type: "statement", date, amount, dir, name: name.replace(/ИНН\s*\d+/g, "").trim(), inn, purpose, service: SERVICE_RE.test(purpose)});
+    }
+    if (ops.length) return {kind: "statement", label: "Таблица операций", ops};
+  }
+  return null;
+}
+
+/* ---------- распознавание через Claude (фото и сложные документы) ---------- */
+let sampleFn;
+async function getSample(){
+  if (sampleFn !== undefined) return sampleFn;
+  sampleFn = (window.claude && typeof window.claude.use === "function") ? await window.claude.use("sample").catch(() => null) : null;
+  return sampleFn;
+}
+async function shrinkImage(file){
+  if (file.size < 1500000 && /jpe?g|png|webp/i.test(file.type)) return file;
+  const img = await createImageBitmap(file).catch(() => null); if (!img) return file;
+  const k = Math.min(1, 2000 / Math.max(img.width, img.height));
+  const c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return await new Promise(r => c.toBlob(b => r(b || file), "image/jpeg", 0.88));
+}
+async function askClaudePermission(){
+  if (S.settings.claudeOk) return true;
+  const ok = await confirmBox("Распознать через Claude?",
+    "Фото и документы, которые приложение не может прочитать само, можно распознать с помощью Claude. Изображение или текст документа будет отправлен в Claude, а таблица останется на телефоне. Разрешить для этого и следующих документов?", "Разрешить");
+  if (ok){ S.settings.claudeOk = true; await Store.set("settings", S.settings); }
+  return ok;
+}
+async function claudeExtract({images, text}){
+  if (OFFLINE) throw new Error(images
+    ? "Фото и скриншоты в офлайн-версии пока не распознаются. Загрузите PDF: банк обычно отдаёт чек и выписку в PDF."
+    : "Не удалось разобрать документ на телефоне: формат не похож на выписку, платёжку или чек. Пришлите его мне — добавлю поддержку.");
+  const sample = await getSample();
+  if (!sample) throw new Error("Распознавание через Claude недоступно в этом окне. Откройте приложение в Claude.");
+  if (!(await askClaudePermission())) throw new Error("Распознавание отменено.");
+  const own = [...(S.settings.ownInn || []).map(i => "ИНН " + i), ...(S.settings.ownNames || [])].join(", ") || "не указаны";
+  const prompt = `Ты извлекаешь денежные операции из банковского документа (чек перевода, платёжное поручение, выписка, акт, счёт).
+${text ? "Текст документа:\n<<<\n" + text.slice(0, 60000) + "\n>>>\n" : "Документ на изображении."}
+Наши реквизиты (владелец таблицы): ${own}.
+Верни только JSON без пояснений в формате:
+{"kind":"check|order|statement|other","operations":[{"date":"ГГГГ-ММ-ДД","amount":число,"direction":"in|out","counterparty":"название или ФИО второй стороны","inn":"ИНН второй стороны или пусто","purpose":"назначение платежа кратко","sender":"отправитель/плательщик","recipient":"получатель"}]}
+Правила: amount — положительное число в рублях без комиссии. direction — "in", если деньги пришли нам, "out", если ушли от нас; если наши реквизиты не встречаются, для чека перевода ставь "out", для платёжки — "in". Для чека перевода counterparty — ФИО отправителя. Не выдумывай данные: если поля нет, оставь пустую строку.`;
+  let data;
+  try{ data = await sample.json(prompt, images ? {images, modelTier: "default"} : {modelTier: "default"}); }
+  catch(e){
+    const m = {not_granted: "Доступ к Claude не разрешён.", rate_limited: "Слишком много запросов, попробуйте через минуту.", images_unavailable: "В этом окне нельзя отправлять изображения.", image_rejected: "Изображение не подошло: слишком большое или неподдерживаемый формат."}[e && e.code];
+    throw new Error(m || "Claude не смог распознать документ.");
+  }
+  const kind = data && data.kind === "check" ? "check" : data && data.kind === "statement" ? "statement" : "order";
+  const ops = ((data && data.operations) || []).filter(o => o && Number(o.amount) > 0).map(o => ({
+    type: kind, date: /^\d{4}-\d{2}-\d{2}$/.test(o.date || "") ? o.date : "", amount: Math.round(Number(o.amount) * 100) / 100,
+    dir: o.direction === "in" ? "in" : "out", name: kind === "check" ? (o.sender || o.counterparty || "") : (o.counterparty || ""),
+    recipient: o.recipient || "", inn: String(o.inn || "").replace(/\D/g, ""), purpose: kind === "check" ? `${o.sender || "?"} → ${o.recipient || "?"}` : (o.purpose || ""),
+    service: SERVICE_RE.test(o.purpose || ""), viaClaude: true
+  }));
+  return {kind, label: kind === "check" ? "Чек (распознан Claude)" : kind === "statement" ? "Выписка (распознана Claude)" : "Документ (распознан Claude)", ops};
+}
+
+async function readDocument(file){
+  const name = file.name.toLowerCase(), type = file.type || "";
+  if (type.startsWith("image/") || /\.(jpe?g|png|heic|webp)$/.test(name)){
+    const img = await shrinkImage(file);
+    return claudeExtract({images: [img]});
+  }
+  const buf = await file.arrayBuffer();
+  if (name.endsWith(".pdf") || type === "application/pdf"){
+    const pages = await pdfPages(buf);
+    const text = pages.map(p => p.map(i => i.s).join(" ")).join(" ");
+    if (/Выписка по сч[её]ту/i.test(text)){
+      const r = parseStatement(pages);
+      if (r.inn && !S.settings.ownInn.includes(r.inn)){ S.settings.ownInn.push(r.inn); }
+      if (r.client){ const n = normName(r.client); if (n && !S.settings.ownNames.includes(n)) S.settings.ownNames.push(n); }
+      await Store.set("settings", S.settings);
+      if (r.ops.length) return r;
+    }
+    if (/Чек по операции/i.test(text)){ const r = parseCheckLines(linesOf(pages[0]).map(l => l.text)); if (r) return r; }
+    if (/ПЛАТЕЖНОЕ ПОРУЧЕНИЕ/i.test(text)){ const r = parsePayOrder(pages[0]); if (r.ops[0].amount) return r; }
+    if (text.replace(/\s/g, "").length < 40) throw new Error("В PDF нет текстового слоя (это скан). Сфотографируйте документ или загрузите его как изображение — его распознает Claude.");
+    return claudeExtract({text: pages.map(p => linesOf(p).map(l => l.text).join("\n")).join("\n\n")});
+  }
+  if (name.endsWith(".docx")){
+    const lines = await docxLines(buf);
+    const ck = parseCheckLines(lines); if (ck && /чек|перевод/i.test(lines.join(" "))) return ck;
+    return claudeExtract({text: lines.join("\n")});
+  }
+  if (name.endsWith(".xlsx") || name.endsWith(".xls")){
+    if (name.endsWith(".xls")) throw new Error("Старый формат .xls не поддерживается. Пересохраните файл как .xlsx.");
+    const rows = await xlsxRows(buf);
+    const r = tableToOps(rows); if (r) return r;
+    return claudeExtract({text: rows.map(r => (r || []).filter(v => v !== undefined).join(" | ")).filter(Boolean).join("\n")});
+  }
+  if (name.endsWith(".csv") || name.endsWith(".txt")){
+    const text = new TextDecoder("utf-8").decode(buf);
+    if (name.endsWith(".csv")){ const sep = (text.split("\n")[0].match(/;/g) || []).length > (text.split("\n")[0].match(/,/g) || []).length ? ";" : ","; const r = tableToOps(text.split(/\r?\n/).map(l => l.split(sep).map(x => x.replace(/^"|"$/g, "").trim()))); if (r) return r; }
+    const ck = parseCheckLines(text.split(/\r?\n/).map(s => s.trim()).filter(Boolean)); if (ck) return ck;
+    return claudeExtract({text});
+  }
+  throw new Error("Этот тип файла не поддерживается. Подходят PDF, фото, Word, Excel, CSV и TXT.");
+}
+/* ================= подсказки, дубли, правила ================= */
+function candKey(c){ if (c.type === "check") return "p2p:" + normName(c.name); if (c.inn) return "inn:" + c.inn; return "name:" + normName(c.name); }
+const purposeSig = c => normName(c.purpose).replace(/\d+/g, " ").split(" ").filter(w => w.length > 2).slice(0, 3).join(" ");
+const candKeys = c => { const k = candKey(c); const sig = purposeSig(c); return sig && c.type !== "check" ? [k + "|" + sig, k] : [k]; };
+const isOwn = c => (S.settings.ownInn || []).includes(c.inn) || (S.settings.ownNames || []).includes(normName(c.name));
+function suggestFor(c){
+  const res = [], seen = new Set();
+  const push = (s, why) => { if (!S.targets[s.targetId]) return; const k = s.targetId + "|" + s.part; if (seen.has(k)) return; seen.add(k); res.push(Object.assign({why}, s)); };
+  const ks = candKeys(c);
+  const sortR = a => (a || []).slice().sort((x, y) => (y.count - x.count) || (y.last - x.last));
+  const rl = [...sortR(S.rules[ks[0]]), ...(ks[1] ? sortR(S.rules[ks[1]]) : [])];
+  for (const r of rl) push(r, "вы выбирали");
+  const k = normName(c.name);
+  if (k && c.type !== "check" && !isOwn(c)){
+    const hits = [];
+    for (const [nm, arr] of S.index){
+      if (nm === k) arr.forEach(e => hits.push({e, score: 2}));
+      else if (k.length >= 5 && nm.length >= 5 && (nm.includes(k) || k.includes(nm))) arr.forEach(e => hits.push({e, score: 1}));
+    }
+    const kb = e => (S.targets[e.targetId] || {}).kind === "bank" ? 1 : 0;
+    hits.sort((a, b) => (b.score - a.score) || (kb(b.e) - kb(a.e)) || (b.e.row - a.e.row));
+    const want = c.dir === "out" ? "out" : "in";
+    for (const h of hits){ if (h.e.part !== want && !rl.length) continue; push(h.e, "есть в истории"); }
+  }
+  if (c.type === "statement" && res.length < 3){
+    for (const id of S.order){ const t = S.targets[id]; const p = c.dir === "out" ? "out" : "in";
+      if (t.kind === "bank" && !t.empty && t.parts[p].fields.length) push({targetId: id, part: p}, "раздел банка"); if (res.length >= 4) break; }
+  }
+  return res.slice(0, 6);
+}
+function dupsFor(c){
+  if (c.amount == null) return [];
+  const key = Math.round(c.amount * 100), d0 = c.date ? serialFromIso(c.date) : null, out = [];
+  for (const e of S.amtIdx.get(key) || []){
+    if (d0 != null && e.date != null && Math.abs(e.date - d0) > 3) continue;
+    if (d0 != null && e.date == null) continue;
+    const t = S.targets[e.targetId]; if (t) out.push({title: t.title, row: e.row, targetId: t.id});
+  }
+  for (const op of S.ops){
+    if ((c.done || []).some(d => d.opId === op.id)) continue;
+    if (Math.round((Number(op.values.amt) || 0) * 100) === key && (!c.date || op.values.date === c.date)){ const t = S.targets[op.targetId]; if (t) out.push({title: t.title, row: op.row, targetId: t.id, isNew: true}); }
+  }
+  return out.slice(0, 3);
+}
+function prefill(c, t, part, sug){
+  const d = (sug && sug.defaults) || {}, v = {};
+  const has = key => t.parts[part].fields.some(f => f.key === key), lv = key => lastValue(t, part, key);
+  if (has("date")) v.date = c.date || todayIso();
+  if (has("amt")) v.amt = c.amount ?? "";
+  const nm = shortName(c.name);
+  if (t.kind === "block" && part === "in"){ if (has("title")) v.title = d.title ?? nm; if (has("ka")) v.ka = d.ka ?? (sug && sug.ka) ?? lv("ka"); if (has("pct")) v.pct = d.pct ?? (sug && sug.pct) ?? lv("pct"); }
+  else if (t.kind === "block"){ if (has("note")) v.note = d.note ?? (c.type === "check" ? "карта" : ""); }
+  else if (t.kind === "bank"){ if (has("name")) v.name = d.name ?? (nm || (c.purpose || "").slice(0, 60)); if (has("note")) v.note = d.note ?? ""; }
+  else if (t.kind === "cash"){ if (has("who")) v.who = d.who ?? nm; if (has("comment")) v.comment = d.comment ?? ""; }
+  else if (t.kind === "debt"){ if (has("who")) v.who = d.who ?? nm; }
+  else if (t.kind === "table"){ if (has("who")) v.who = d.who ?? nm; }
+  else if (part === "in"){
+    if (has("partner")) v.partner = d.partner ?? (sug && sug.partner) ?? "";
+    if (has("payer")) v.payer = d.payer ?? (sug && sug.payer) ?? nm;
+    if (has("company")) v.company = d.company ?? "";
+    if (has("pctT")) v.pctT = d.pctT ?? (sug && sug.pctT) ?? lv("pctT");
+    if (has("rate")) v.rate = d.rate ?? (sug && sug.rate) ?? lv("rate");
+  } else { if (has("to")) v.to = d.to ?? (nm || (c.purpose || "").slice(0, 60)); if (has("pctOut")) v.pctOut = d.pctOut ?? ""; }
+  return v;
+}
+async function learnRule(c, t, part, values){
+  for (const key of candKeys(c)){
+    const arr = S.rules[key] || (S.rules[key] = []);
+    let r = arr.find(x => x.targetId === t.id && x.part === part);
+    if (!r){ r = {targetId: t.id, part, count: 0, last: 0, defaults: {}, label: shortName(c.name) || c.purpose}; arr.push(r); }
+    r.count++; r.last = Date.now(); r.label = shortName(c.name) || r.label;
+    const keep = ["partner", "rate", "pct", "pctT", "note", "pctOut", "ka", "company", "payer", "comment"];
+    if (t.kind === "bank" || t.kind === "cash" || t.kind === "debt") keep.push("name", "who");
+    if (t.kind === "ledger" && part === "out") keep.push("to");
+    for (const k of keep) if (values[k] !== undefined && values[k] !== "") r.defaults[k] = values[k];
+  }
+  await Store.set("rules", S.rules);
+}
+function linkFor(c, t, part){
+  if (t.kind !== "ledger" || part !== "in" || !c.done) return null;
+  const bd = c.done.find(d => { const bt = S.targets[d.targetId]; return bt && bt.kind === "bank" && bt.sheet === t.sheet && d.part === "in"; });
+  if (!bd) return null;
+  return {col: S.targets[bd.targetId].parts.in.fields.find(f => f.key === "amt").col, row: bd.row};
+}
+async function afterCandSave(c, t, part, op, values){
+  c.done = c.done || []; c.done.push({title: t.title, row: op.row, opId: op.id, targetId: t.id, part});
+  if (t.kind === "bank" && part === "in"){
+    for (const d of c.done){ const lt = S.targets[d.targetId], lop = S.ops.find(o => o.id === d.opId);
+      if (lt && lop && lt.kind === "ledger" && lt.sheet === t.sheet && d.part === "in" && !lop.link) lop.link = {col: t.parts.in.fields.find(f => f.key === "amt").col, row: op.row}; }
+    await Store.set("ops", S.ops);
+  }
+  await learnRule(c, t, part, values);
+  await Store.set("cands", S.cands);
+}
+function useCand(c, t, part, sug){
+  const vals = prefill(c, t, part, sug), link = linkFor(c, t, part);
+  openForm(t, part, vals, {source: c.type === "statement" ? "выписка" : c.type === "check" ? "чек" : "документ", link,
+    note: link ? `«Отправил» будет ссылкой на ${colName(link.col)}${link.row}, как у вас в таблице.` : "",
+    onSave: async (op, values) => { await afterCandSave(c, t, part, op, values); render(); }});
+}
+function autoPlan(c){
+  if (c.done || c.skipped || dupsFor(c).length) return null;
+  const ks = candKeys(c); const rl = (S.rules[ks[0]] && S.rules[ks[0]].length ? S.rules[ks[0]] : S.rules[ks[1]] || []).filter(r => S.targets[r.targetId]);
+  if (!rl.length) return null;
+  const ord = r => S.targets[r.targetId].kind === "bank" ? 0 : S.targets[r.targetId].kind === "ledger" ? 1 : 2;
+  return rl.slice().sort((a, b) => ord(a) - ord(b));
+}
+async function bulkWrite(){
+  const plans = S.cands.map(c => ({c, plan: autoPlan(c)})).filter(x => x.plan);
+  if (!plans.length) return;
+  const n = plans.reduce((s, x) => s + x.plan.length, 0);
+  if (!(await confirmBox("Записать по выученным подсказкам?", `Операций: ${plans.length}, записей в таблицу: ${n}. Каждую можно будет удалить в журнале или на вкладке «Файл».`, "Записать"))) return;
+  let ok = 0, fail = 0;
+  for (const {c, plan} of plans){
+    for (const r of plan){
+      const t = S.targets[r.targetId];
+      try{ const vals = prefill(c, t, r.part, r); const op = await addOp(t, r.part, vals, "пачкой", linkFor(c, t, r.part)); await afterCandSave(c, t, r.part, op, vals); ok++; }
+      catch(e){ fail++; console.warn(e); }
+    }
+  }
+  toast(`Записано: ${ok}${fail ? `, не удалось: ${fail}` : ""}`, 3500); render();
+}
+/* ================= интерфейс ================= */
+function setTitle(t, back, right = ""){ $("#title").textContent = t; $("#backBtn").classList.toggle("hidden", !back); $("#topRight").innerHTML = right; }
+function badges(){
+  $("#opsBadge").innerHTML = S.ops.length ? `<span class="badge">${S.ops.length}</span>` : "";
+  const open = S.cands.filter(c => !c.done && !c.skipped).length;
+  $("#docsBadge").innerHTML = open ? `<span class="badge" style="background:var(--accent);color:var(--accent-ink)">${open}</span>` : "";
+}
+function render(){
+  badges();
+  for (const b of document.querySelectorAll("nav.tabs button")) b.setAttribute("aria-current", b.dataset.tab === S.tab ? "page" : "false");
+  const v = $("#view");
+  if (!S.zip){ setTitle("Сверка", false); v.innerHTML = `<div class="empty"><h2>Откройте рабочую таблицу</h2><p>Выберите ваш файл .xlsx. Он хранится только на этом телефоне.</p><button class="btn primary wide" data-act="pickXlsx">Открыть таблицу</button></div>`; return; }
+  const top = S.stack[S.stack.length - 1];
+  if (top && top.type === "target") return viewTarget(v, S.targets[top.id]);
+  if (top && top.type === "sheet") return viewSheet(v, top.name);
+  if (top && top.type === "rules") return viewRules(v);
+  ({home: viewHome, ledgers: viewLedgers, docs: viewDocs, summary: viewSummary, file: viewFile})[S.tab](v);
+}
+function loadingBlock(){
+  if (!S.loading) return "";
+  return `<div class="panel pad"><div id="progText" class="small muted">Читаю лист «${esc(S.loading.name)}» (${S.loading.i + 1} из ${S.loading.n})</div><div class="progress" id="prog"><i style="width:${Math.round(S.loading.i / S.loading.n * 100)}%"></i></div></div>`;
+}
+const sheetsInOrder = () => WORK_SHEETS.filter(n => S.parsed[n.trim()]);
+const visibleTargets = n => S.parsed[n].targets.map(id => S.targets[id]).filter(t => !t.empty || opsOf(t).length || t.kind === "debt" || t.kind === "table");
+function targetRow(t, sub){
+  const b = balanceOf(t), pend = opsOf(t).length;
+  const right = t.kind === "table" ? `<span class="muted">›</span>` : `<div class="num ${sign(b)}">${fmtShort(b)}</div>`;
+  const kindLbl = {ledger: "журнал", bank: "банковский раздел", cash: "касса", debt: "долги", table: "выплаты"}[t.kind];
+  const sl = sheetLabel(t.sheet), dflt = t.title.startsWith(sl) || t.title === sl ? kindLbl : sl;
+  return `<button class="row" data-act="openTarget" data-id="${esc(t.id)}"><div class="grow"><div class="t">${esc(t.title)}</div><div class="s">${esc(sub ?? dflt)}${pend ? ` · новых: ${pend}` : ""}</div></div>${right}</button>`;
+}
+
+/* ---------- главная ---------- */
+function viewHome(v){
+  setTitle("Сверка", false);
+  const open = S.cands.filter(c => !c.done && !c.skipped).length;
+  const mk = todayIso().slice(0, 7); let inA = 0, outA = 0, today = 0;
+  for (const id of S.order){ const t = S.targets[id]; if (["bank", "table", "debt"].includes(t.kind)) continue; const m = t.months[mk]; if (m){ inA += m.inAmt; outA += m.out; } }
+  for (const op of S.ops){ const t = S.targets[op.targetId]; if (!t || ["bank", "table", "debt"].includes(t.kind)) continue; if ((op.values.date || "").startsWith(mk)){ const a = Number(op.values.amt) || 0; if (op.part === "in") inA += a; else outA += a; } if (op.values.date === todayIso()) today++; }
+  const pins = (S.settings.pins || []).map(id => S.targets[id]).filter(Boolean);
+  let html = loadingBlock();
+  html += S.ops.length
+    ? `<div class="panel pad"><div class="small muted">Не сохранено в файл</div><div style="font-size:22px;font-weight:600;margin:2px 0 10px">${S.ops.length} ${plural(S.ops.length, "новая запись", "новые записи", "новых записей")}</div><button class="btn primary wide" data-act="export">Сохранить таблицу</button></div>`
+    : `<div class="panel pad"><div class="small muted">Таблица</div><div style="font-weight:600;word-break:break-all">${esc(S.baseName)}</div><div class="small muted">Все записи сохранены в файл</div></div>`;
+  html += `<div class="actions"><button class="btn" data-act="pickDoc">Загрузить документ</button><button class="btn" data-act="quickNew">Новая запись</button></div>`;
+  if (open) html += `<button class="panel pad row" style="border:0" data-act="goDocs"><div class="grow"><div class="t">Ждут разбора: ${open} ${plural(open, "операция", "операции", "операций")}</div><div class="s">Из загруженных документов</div></div><span class="muted">›</span></button>`;
+  html += `<div class="grid2"><div class="tile"><div class="lbl">Поступило в ${MONTHS_P[+mk.slice(5) - 1]}</div><div class="v pos">${fmtShort(inA)}</div></div><div class="tile"><div class="lbl">Выдано и списано</div><div class="v neg">${fmtShort(outA)}</div></div></div>`;
+  html += `<div class="sec"><span>Закреплённые</span><span class="small">звёздочка на экране журнала</span></div>`;
+  html += pins.length ? `<div class="panel">${pins.map(t => targetRow(t)).join("")}</div>` : `<div class="panel pad small muted">Откройте любой журнал и нажмите ☆, чтобы он появился здесь.</div>`;
+  const recent = S.ops.slice(-5).reverse();
+  if (recent.length) html += `<div class="sec"><span>Последние новые записи</span></div><div class="panel">${recent.map(o => { const t = S.targets[o.targetId]; return t ? recRow(t, o, true, true) : ""; }).join("")}</div>`;
+  v.innerHTML = html;
+}
+
+/* ---------- журналы ---------- */
+function viewLedgers(v){
+  setTitle("Журналы", false);
+  const q = (S.q || "").trim().toLowerCase();
+  let html = loadingBlock() + `<input class="search" id="q" placeholder="Найти партнёра или журнал" value="${esc(S.q || "")}" aria-label="Поиск">`;
+  if (q){
+    const hits = S.order.map(id => S.targets[id]).filter(t => !t.empty && (t.title.toLowerCase().includes(q) || t.sheet.toLowerCase().includes(q)));
+    html += `<div class="panel">${hits.map(t => targetRow(t)).join("") || `<div class="row muted">Ничего не найдено</div>`}</div>`;
+  } else {
+    html += `<div class="panel">`;
+    for (const n of sheetsInOrder()){
+      const ts = visibleTargets(n), pend = S.ops.filter(o => o.sheet.trim() === n).length;
+      html += `<button class="row" data-act="openSheet" data-name="${esc(n)}"><div class="grow"><div class="t">${esc(sheetLabel(n))}</div><div class="s">${ts.length === 1 ? "журнал" : ts.length + " " + plural(ts.length, "раздел", "раздела", "разделов")}${pend ? ` · новых: ${pend}` : ""}</div></div><span class="muted">›</span></button>`;
+    }
+    html += `</div>`;
+  }
+  v.innerHTML = html;
+  const qi = $("#q"); qi.oninput = () => { S.q = qi.value; const pos = qi.selectionStart; viewLedgers(v); const n = $("#q"); n.focus(); n.setSelectionRange(pos, pos); };
+}
+function viewSheet(v, name){
+  setTitle(sheetLabel(name), true);
+  const ts = visibleTargets(name);
+  if (ts.length === 1){ S.stack[S.stack.length - 1] = {type: "target", id: ts[0].id}; return render(); }
+  const withBal = ts.filter(t => t.kind !== "table" && t.kind !== "bank");
+  let total = 0; withBal.forEach(t => total += balanceOf(t) || 0);
+  v.innerHTML = (withBal.length > 1 ? `<div class="hero"><div class="lbl">Сумма остатков по листу</div><div class="big ${sign(total)}">${fmtShort(total)} <small>₽</small></div></div>` : "")
+    + `<div class="panel">${ts.sort((a, b) => Math.abs(balanceOf(b) || 0) - Math.abs(balanceOf(a) || 0)).map(t => targetRow(t, t.kind === "bank" ? "банковский раздел" : t.kind === "debt" ? "долги" : undefined)).join("")}</div>`;
+}
+function recDate(rec){ const v = rec.v || rec.values; return rec.values ? v.date || "" : v.date; }
+function recRow(t, rec, isNew, showTitle){
+  const v = rec.v || rec.values, amt = Number(v.amt) || 0;
+  const date = fmtDate(recDate(rec));
+  let who = "";
+  if (rec.part === "ret"){ const d = t.rows.find(r => r.row === rec.row && r.part === "in") || S.ops.find(o => o.targetId === t.id && o.part === "in" && o.row === rec.row); who = "Возврат: " + ((d && (d.v || d.values).who) || "долг"); }
+  else if (t.kind === "block") who = rec.part === "in" ? [v.title, v.ka].filter(Boolean).join(" · ") : (v.note || "выдача");
+  else if (t.kind === "bank") who = [v.name, v.note].filter(Boolean).join(" · ");
+  else if (t.kind === "cash") who = [v.who, v.comment].filter(Boolean).join(" · ");
+  else if (t.kind === "debt" || t.kind === "table") who = [v.who, v.note].filter(Boolean).join(" · ") || Object.keys(v).filter(k => k.startsWith("x")).map(k => v[k]).filter(Boolean).join(" · ");
+  else who = rec.part === "in" ? [v.partner, v.payer].filter(Boolean).join(" · ") : (v.to || "списание");
+  const extra = rec.part === "in" ? (t.kind === "block" && v.pct !== undefined && v.pct !== "" ? `${fmtNum(v.pct)}%` : t.kind === "ledger" && v.rate !== undefined && v.rate !== "" ? `ставка ${fmtNum(v.rate)}` : "") : "";
+  const isIn = t.kind === "table" ? t.dir > 0 : t.kind === "debt" ? rec.part !== "ret" : rec.part === "in";
+  const head = showTitle ? `${t.title}: ` : "";
+  const inner = `<div class="grow"><div class="t">${esc(head + (who || "—"))}</div><div class="s">${esc(date)}${date ? " · " : ""}строка ${rec.row}${extra ? " · " + esc(extra) : ""}${isNew ? ' · <span class="tag new">новая</span>' : ""}</div></div>
+    <div class="num ${isIn ? "pos" : "neg"}">${isIn ? "+" : "−"}${fmtMoney(amt)}</div>`;
+  return isNew ? `<button class="row" data-act="editOp" data-id="${esc(rec.id)}">${inner}</button>` : `<div class="row">${inner}</div>`;
+}
+function sparkSvg(t){
+  const pts = t.rows.filter(r => typeof r.bal === "number").sort((a, b) => a.row - b.row);
+  const uniq = []; for (const p of pts){ if (!uniq.length || uniq[uniq.length - 1].row !== p.row) uniq.push(p); }
+  const s = uniq.slice(-60).map(p => p.bal); if (s.length < 3) return "";
+  const b = balanceOf(t); if (b != null && opsOf(t).length) s.push(b);
+  const mn = Math.min(...s, 0), mx = Math.max(...s, 0), W = 300, H = 56, k = (mx - mn) || 1;
+  const xy = s.map((y, i) => `${(i / (s.length - 1) * W).toFixed(1)},${(H - 4 - (y - mn) / k * (H - 8)).toFixed(1)}`).join(" ");
+  const zero = (H - 4 - (0 - mn) / k * (H - 8)).toFixed(1);
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Динамика остатка"><line x1="0" x2="${W}" y1="${zero}" y2="${zero}" stroke="var(--line)" stroke-width="1"/><polyline points="${xy}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function viewTarget(v, t){
+  if (!t){ S.stack.pop(); return render(); }
+  const pinned = (S.settings.pins || []).includes(t.id);
+  setTitle(t.title, true, `<button class="star" data-act="pin" data-id="${esc(t.id)}" aria-pressed="${pinned}" aria-label="Закрепить на главной">${pinned ? "★" : "☆"}</button>`);
+  if (t.kind === "debt") return viewDebt(v, t);
+  const b = balanceOf(t), pend = opsOf(t);
+  let html = t.kind === "table" ? `<div class="hero"><div class="lbl">${esc(sheetLabel(t.sheet))}</div></div>`
+    : `<div class="hero"><div class="lbl">Остаток · ${esc(sheetLabel(t.sheet))}</div><div class="big ${sign(b)}">${fmtMoney(b)} <small>₽</small></div>${pend.length ? `<div class="small muted">с учётом новых записей: ${pend.length}</div>` : ""}${sparkSvg(t)}</div>`;
+  const btns = [];
+  if (t.parts.in.fields.length) btns.push(`<button class="btn in" data-act="newOp" data-id="${esc(t.id)}" data-part="in">+ ${partLabel(t, "in")}</button>`);
+  if (t.parts.out.fields.length) btns.push(`<button class="btn out" data-act="newOp" data-id="${esc(t.id)}" data-part="out">+ ${partLabel(t, "out")}</button>`);
+  html += `<div class="actions ${btns.length === 1 ? "one" : ""}">${btns.join("")}</div>`;
+  if (pend.length) html += `<div class="sec"><span>Новые записи</span><span class="small">нажмите, чтобы изменить</span></div><div class="panel">${pend.slice().reverse().map(o => recRow(t, o, true)).join("")}</div>`;
+  const hasBoth = t.parts.in.fields.length && t.parts.out.fields.length;
+  if (hasBoth) html += `<div class="seg" role="group" aria-label="Фильтр">${[["all", "Все"], ["in", partLabel(t, "in")], ["out", partLabel(t, "out")]].map(([k, l]) => `<button data-act="filter" data-f="${k}" aria-pressed="${S.filter === k}">${l}</button>`).join("")}</div>`;
+  const rows = t.rows.filter(r => !hasBoth || S.filter === "all" || r.part === S.filter);
+  const groups = new Map();
+  for (const r of rows.slice(0, S.showN)){ const d = r.v.date; const k = typeof d === "number" ? monthKey(d) : "—"; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(r); }
+  for (const [k, list] of groups){
+    const m = t.months[k];
+    html += `<div class="sec"><span>${k === "—" ? "Без даты" : esc(monthTitle(k))}</span>${m && t.kind !== "table" ? `<span><span class="pos">+${fmtShort(m.inAmt)}</span> · <span class="neg">−${fmtShort(m.out)}</span></span>` : ""}</div><div class="panel">${list.map(r => recRow(t, r, false)).join("")}</div>`;
+  }
+  if (!rows.length) html += `<div class="panel pad muted">Записей пока нет</div>`;
+  if (rows.length > S.showN) html += `<button class="btn ghost wide" data-act="more">Показать ещё</button>`;
+  v.innerHTML = html;
+}
+function viewDebt(v, t){
+  const pendRet = row => S.ops.filter(o => o.targetId === t.id && o.part === "ret" && o.row === row).reduce((s, o) => s + (Number(o.values.amt) || 0), 0);
+  const items = [...t.rows.filter(r => r.part === "in").map(r => ({row: r.row, who: r.v.who, date: r.v.date, amt: Number(r.v.amt) || 0, bal: (r.bal || 0) - pendRet(r.row), note: r.v.note})),
+    ...opsOf(t).filter(o => o.part === "in").map(o => ({row: o.row, who: o.values.who, date: o.values.date, amt: Number(o.values.amt) || 0, bal: (Number(o.values.amt) || 0) - pendRet(o.row), note: o.values.note, isNew: true, id: o.id}))];
+  const open = items.filter(i => Math.abs(i.bal) >= 0.5).sort((a, b) => b.row - a.row), closed = items.filter(i => Math.abs(i.bal) < 0.5).sort((a, b) => b.row - a.row);
+  const b = balanceOf(t);
+  const card = i => `<div class="row"><div class="grow"><div class="t">${esc(i.who || "—")}${i.isNew ? ' <span class="tag new">новый</span>' : ""}</div><div class="s">${esc(fmtDate(i.date))}${i.date ? " · " : ""}долг ${fmtMoney(i.amt)}${i.note ? " · " + esc(i.note) : ""}</div></div>
+    <div style="text-align:right"><div class="num" style="font-weight:600">${fmtMoney(i.bal)}</div>${Math.abs(i.bal) >= 0.5 ? `<button class="btn sm ghost" style="margin-top:4px" data-act="debtRet" data-id="${esc(t.id)}" data-row="${i.row}">Возврат</button>` : ""}</div></div>`;
+  let html = `<div class="hero"><div class="lbl">Остаток долгов · ${esc(sheetLabel(t.sheet))}</div><div class="big">${fmtMoney(b)} <small>₽</small></div></div>
+    <div class="actions one"><button class="btn primary" data-act="newOp" data-id="${esc(t.id)}" data-part="in">+ Новый долг</button></div>`;
+  const rets = S.ops.filter(o => o.targetId === t.id && o.part === "ret");
+  if (rets.length) html += `<div class="sec"><span>Новые возвраты</span></div><div class="panel">${rets.map(o => recRow(t, o, true)).join("")}</div>`;
+  html += `<div class="sec"><span>Открытые: ${open.length}</span></div><div class="panel">${open.map(card).join("") || `<div class="row muted">Открытых долгов нет</div>`}</div>`;
+  if (closed.length) html += `<div class="sec"><span>Закрытые: ${closed.length}</span></div><div class="panel">${closed.slice(0, 30).map(card).join("")}</div>`;
+  v.innerHTML = html;
+}
+
+/* ---------- форма записи ---------- */
+function openForm(t, part, values, opts = {}){
+  const fields = part === "ret" ? [{key: "amt", label: "Сумма возврата", type: "num"}] : t.parts[part].fields;
+  const edit = opts.op;
+  const wrap = document.createElement("div"); wrap.className = "sheetwrap";
+  const fv = values || {};
+  const input = f => {
+    const val = fv[f.key] ?? "";
+    if (f.type === "date") return `<label class="field"><span>${esc(f.label)}</span><input type="date" name="${f.key}" value="${esc(val)}"></label>`;
+    if (f.type === "num") return `<label class="field"><span>${esc(f.label)}</span><input inputmode="decimal" name="${f.key}" class="${f.key === "amt" ? "amount" : ""}" value="${esc(val === "" ? "" : String(val).replace(".", ","))}"></label>`;
+    const dl = suggestionsList(t, part, f.key);
+    return `<label class="field"><span>${esc(f.label)}</span><input name="${f.key}" value="${esc(val)}" autocomplete="off" ${dl ? `list="dl_${f.key}"` : ""}>${dl}</label>`;
+  };
+  const amtF = fields.find(f => f.key === "amt"), dateF = fields.find(f => f.key === "date");
+  const short = fields.filter(f => f.type === "num" && f !== amtF), rest = fields.filter(f => f.type === "text");
+  const row = edit ? edit.row : part === "ret" ? opts.row : nextRow(t, part);
+  wrap.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">
+    <h2>${esc(partLabel(t, part))}${edit ? " · правка" : ""}</h2>
+    <div class="sub">${esc(t.title)}${t.kind === "block" ? " · " + esc(sheetLabel(t.sheet)) : ""} · строка ${row}${opts.subNote ? " · " + esc(opts.subNote) : ""}</div>
+    ${opts.note ? `<div class="note info">${esc(opts.note)}</div>` : ""}
+    ${amtF ? input(amtF) : ""}
+    <div class="two">${dateF ? input(dateF) : ""}${short.map(input).join("")}</div>
+    ${rest.map(input).join("")}
+    <div id="formErr"></div>
+    <div class="actions" style="margin-top:14px"><button class="btn ghost" data-x="cancel">Отмена</button><button class="btn primary" data-x="save">${edit ? "Сохранить" : "Записать"}</button></div>
+    ${edit ? `<button class="btn ghost wide" style="margin-top:10px;color:var(--out)" data-x="del">Удалить запись</button>` : ""}
+  </div>`;
+  document.body.appendChild(wrap);
+  const close = () => wrap.remove();
+  const showErr = m => { wrap.querySelector("#formErr").innerHTML = `<div class="note">${esc(m)}</div>`; };
+  wrap.addEventListener("click", async e => {
+    const x = e.target.dataset.x;
+    if (e.target === wrap || x === "cancel"){ close(); return; }
+    if (x === "del"){ close(); await removeOp(edit.id); toast("Запись удалена"); render(); return; }
+    if (x !== "save") return;
+    const vals = {};
+    for (const f of fields){
+      const el = wrap.querySelector(`[name="${f.key}"]`); let val = el.value.trim();
+      if (f.type === "num" && val !== ""){ const n = Number(val.replace(/\s/g, "").replace(",", ".")); if (isNaN(n)){ showErr(`Поле «${f.label}»: нужно число.`); return; } val = n; }
+      vals[f.key] = val;
+    }
+    if (amtF && (vals.amt === "" || vals.amt === 0)){ showErr("Укажите сумму."); return; }
+    try{
+      if (edit){ await updateOp(edit, vals); close(); toast("Запись изменена"); render(); return; }
+      const op = await addOp(t, part, vals, opts.source, opts.link, opts.row);
+      close(); toast(`Записано: ${t.title}, строка ${op.row}`);
+      if (opts.onSave) await opts.onSave(op, vals);
+      render();
+    }catch(err){ showErr(err.message); }
+  });
+  const first = wrap.querySelector("input.amount") || wrap.querySelector("input"); if (first && !values) setTimeout(() => first.focus(), 50);
+}
+function suggestionsList(t, part, key){
+  const set = new Set();
+  for (const r of t.rows){ if (r.part === part && typeof r.v[key] === "string"){ set.add(r.v[key].trim()); if (set.size >= 30) break; } }
+  if (!set.size) return "";
+  return `<datalist id="dl_${key}">${[...set].map(s => `<option value="${esc(s)}">`).join("")}</datalist>`;
+}
+
+/* ---------- выбор журнала ---------- */
+function openPicker(onPick, part, title){
+  const wrap = document.createElement("div"); wrap.className = "sheetwrap";
+  const draw = q => {
+    q = (q || "").toLowerCase();
+    return S.order.map(id => S.targets[id])
+      .filter(t => (!q || t.title.toLowerCase().includes(q) || t.sheet.toLowerCase().includes(q)) && (!part || t.parts[part].fields.length || (part === "out" && t.parts.in.fields.length && t.kind === "table")))
+      .sort((a, b) => a.empty - b.empty)
+      .map(t => `<button class="row" data-pick="${esc(t.id)}"><div class="grow"><div class="t">${esc(t.title)}</div><div class="s">${esc(sheetLabel(t.sheet))}${t.empty ? " · пустой" : ""}</div></div></button>`).join("");
+  };
+  wrap.innerHTML = `<div class="sheet"><h2>${esc(title || "Куда записать")}</h2><div class="sub">${part === "out" ? "Выдача / расход" : part === "in" ? "Поступление / приход" : "Выберите журнал"}</div>
+    <input class="search" placeholder="Поиск" id="pq" aria-label="Поиск"><div class="panel" id="pl">${draw("")}</div><button class="btn ghost wide" data-x="cancel">Отмена</button></div>`;
+  document.body.appendChild(wrap);
+  wrap.querySelector("#pq").oninput = e => { wrap.querySelector("#pl").innerHTML = draw(e.target.value); };
+  wrap.addEventListener("click", e => { const b = e.target.closest("[data-pick]"); if (b){ wrap.remove(); onPick(S.targets[b.dataset.pick]); return; } if (e.target === wrap || e.target.dataset.x === "cancel") wrap.remove(); });
+}
+/* ---------- документы ---------- */
+function viewDocs(v){
+  setTitle("Документы", false);
+  const open = S.cands.filter(c => !c.done && !c.skipped);
+  const auto = S.cands.filter(c => autoPlan(c)).length;
+  let html = `<div class="panel pad"><button class="btn primary wide" data-act="pickDoc">Загрузить документы</button>
+    <div class="small muted" style="margin-top:8px">PDF-выписки, платёжки и чеки Сбербанка, выписки в Excel и CSV. Всё читается прямо на телефоне, без интернета.</div></div>`;
+  if (S.docBusy) html += `<div class="panel pad small" role="status">${esc(S.docBusy)}</div>`;
+  if (!S.cands.length && !S.docBusy) html += `<div class="empty"><p>Загрузите документ, и здесь появятся операции с подсказками, куда их записать.</p></div>`;
+  if (S.cands.length){
+    html += `<div class="sec"><span>Ждут решения: ${open.length} из ${S.cands.length}</span><button class="btn sm ghost" data-act="clearDone">Убрать разобранные</button></div>`;
+    if (auto) html += `<div class="panel pad"><button class="btn in wide" data-act="bulk">Записать по выученным подсказкам: ${auto}</button><div class="small muted" style="margin-top:6px">Только операции, которые вы уже записывали раньше так же, и без похожих записей в таблице.</div></div>`;
+    const byFile = new Map();
+    for (const c of S.cands){ const k = c.fileKey || "—"; if (!byFile.has(k)) byFile.set(k, []); byFile.get(k).push(c); }
+    for (const [k, list] of byFile){
+      const f = S.files[k] || {name: k, label: ""};
+      html += `<div class="filehead"><b>${esc(f.label || f.name)}</b><span class="small muted">${list.length} ${plural(list.length, "операция", "операции", "операций")}</span></div>`;
+      const ord = c => (c.done || c.skipped) ? 2 : dupsFor(c).length ? 1 : 0;
+      for (const c of list.slice().sort((a, b) => ord(a) - ord(b))) html += candCard(c);
+    }
+  }
+  v.innerHTML = html;
+}
+function candCard(c){
+  const doneIds = new Set((c.done || []).map(d => d.targetId + "|" + d.part));
+  const sgs = c.skipped ? [] : suggestFor(c).filter(s => !doneIds.has(s.targetId + "|" + s.part));
+  const dups = c.done ? [] : dupsFor(c);
+  const amtCls = c.dir === "in" ? "pos" : "neg";
+  const title = c.type === "check" ? c.purpose : (shortName(c.name) || "Без названия");
+  let html = `<div class="doc ${c.done || c.skipped ? "done" : ""}" id="c_${c.id}"><div class="head"><div class="grow">
+    <div class="name">${esc(title)}</div>
+    <div class="small muted">${esc(c.date ? fmtDate(c.date) : "дата не найдена")}${c.inn ? " · ИНН " + esc(c.inn) : ""}${c.service ? ' · <span class="tag">банк / служебная</span>' : ""}${c.viaClaude ? ' · <span class="tag">распознано Claude</span>' : ""}</div>
+    ${c.type !== "check" && c.purpose ? `<div class="purpose">${esc(c.purpose)}</div>` : ""}
+    </div><div class="amt num ${amtCls}">${c.dir === "in" ? "+" : "−"}${fmtMoney(c.amount)}</div></div>`;
+  if (dups.length) html += `<div class="note">Похоже, уже есть в таблице: ${dups.map(d => `${esc(d.title)}, строка ${d.row}${d.isNew ? " (новая)" : ""}`).join("; ")}</div>`;
+  if (c.done) html += `<div class="small" style="margin-top:8px">${c.done.map(d => `✓ ${esc(d.title)}, строка ${d.row}`).join("<br>")}</div>`;
+  if (c.skipped){ html += `<div class="chips"><button class="chip" data-act="candUnskip" data-id="${c.id}">Вернуть</button></div>`; return html + `</div>`; }
+  html += `<div class="chips">`;
+  sgs.forEach((s, i) => {
+    const t = S.targets[s.targetId];
+    const extra = s.viaBank && s.partner ? ` · ${s.partner}${s.rate ? ", " + fmtNum(s.rate) : ""}` : (s.defaults && s.defaults.partner ? ` · ${s.defaults.partner}` : "") + (s.part === "out" && t.kind === "block" ? " · выдача" : "");
+    html += `<button class="chip ${i === 0 && !c.done && !dups.length ? "main" : ""}" data-act="candUse" data-id="${c.id}" data-t="${esc(s.targetId)}" data-part="${s.part}">${c.done ? "Ещё в: " : ""}${esc(t.title + extra)}<span class="small" style="opacity:.75"> · ${esc(s.why)}</span></button>`;
+  });
+  html += `<button class="chip" data-act="candPick" data-id="${c.id}">${c.done ? "Ещё в другой журнал…" : "Выбрать журнал…"}</button>`;
+  if (!c.done) html += `<button class="chip" data-act="candEdit" data-id="${c.id}">Исправить</button><button class="chip" data-act="candSkip" data-id="${c.id}">${dups.length ? "Уже записано, скрыть" : "Пропустить"}</button>`;
+  return html + `</div></div>`;
+}
+function openCandEdit(c){
+  const w = document.createElement("div"); w.className = "sheetwrap";
+  w.innerHTML = `<div class="sheet"><h2>Исправить распознанное</h2><div class="sub">Если документ прочитан неточно</div>
+    <label class="field"><span>Сумма</span><input class="amount" inputmode="decimal" name="amount" value="${esc(String(c.amount ?? "").replace(".", ","))}"></label>
+    <div class="two"><label class="field"><span>Дата</span><input type="date" name="date" value="${esc(c.date)}"></label>
+    <label class="field"><span>Направление</span><select name="dir"><option value="in" ${c.dir === "in" ? "selected" : ""}>Приход</option><option value="out" ${c.dir === "out" ? "selected" : ""}>Расход</option></select></label></div>
+    <label class="field"><span>${c.type === "check" ? "Отправитель" : "Контрагент"}</span><input name="name" value="${esc(c.name)}"></label>
+    <label class="field"><span>ИНН</span><input inputmode="numeric" name="inn" value="${esc(c.inn)}"></label>
+    <div class="actions"><button class="btn ghost" data-x="cancel">Отмена</button><button class="btn primary" data-x="save">Сохранить</button></div></div>`;
+  document.body.appendChild(w);
+  w.addEventListener("click", async e => {
+    const x = e.target.dataset.x;
+    if (e.target === w || x === "cancel") return w.remove();
+    if (x !== "save") return;
+    const g = n => w.querySelector(`[name="${n}"]`).value.trim();
+    const a = parseMoney(g("amount")); if (!a){ toast("Укажите сумму"); return; }
+    Object.assign(c, {amount: a, date: g("date"), dir: g("dir"), name: g("name"), inn: g("inn").replace(/\D/g, "")});
+    if (c.type === "check") c.purpose = `${c.name || "?"} → ${c.recipient || "?"}`;
+    await Store.set("cands", S.cands); w.remove(); render();
+  });
+}
+async function handleDocs(files){
+  for (const f of files){
+    S.docBusy = `Читаю «${f.name}»…`; render();
+    try{
+      const r = await readDocument(f);
+      const fileKey = uid(); S.files[fileKey] = {name: f.name, label: `${r.label || f.name}`};
+      let added = 0;
+      for (const o of r.ops){
+        if (o.amount == null) continue;
+        if (S.cands.find(c => c.date === o.date && Math.abs(c.amount - o.amount) < 0.005 && c.name === o.name && c.dir === o.dir)) continue;
+        S.cands.push(Object.assign({id: uid(), fileKey, skipped: false}, o)); added++;
+      }
+      toast(added ? `«${f.name}»: найдено операций — ${added}` : `«${f.name}»: новых операций нет`);
+    }catch(e){ console.error(e); toast(`«${f.name}»: ${e.message}`, 5000); }
+  }
+  S.docBusy = null;
+  await Store.set("cands", S.cands); await Store.set("files", S.files);
+  render();
+}
+
+/* ---------- сводка ---------- */
+function monthAgg(mk){
+  const per = [], T = {inAmt: 0, inPct: 0, out: 0};
+  for (const n of sheetsInOrder()){
+    const agg = {inAmt: 0, inPct: 0, out: 0};
+    for (const id of S.parsed[n].targets){
+      const t = S.targets[id]; if (["bank", "table", "debt"].includes(t.kind)) continue;
+      const m = t.months[mk]; if (m){ agg.inAmt += m.inAmt; agg.inPct += m.inPct; agg.out += m.out; }
+      for (const op of opsOf(t)) if ((op.values.date || "").startsWith(mk)){ const a = Number(op.values.amt) || 0; if (op.part === "in"){ agg.inAmt += a; agg.inPct += a * (Number(t.kind === "block" ? op.values.pct : op.values.pctT) || 0) / 100; } else agg.out += a; }
+    }
+    if (agg.inAmt || agg.out){ per.push({n, ...agg}); T.inAmt += agg.inAmt; T.inPct += agg.inPct; T.out += agg.out; }
+  }
+  return {per, T};
+}
+function allMonths(){
+  const s = new Set(); for (const id of S.order) Object.keys(S.targets[id].months).forEach(k => s.add(k));
+  for (const op of S.ops) if (op.values.date) s.add(op.values.date.slice(0, 7));
+  return [...s].filter(k => k >= "2024-01" && k <= todayIso().slice(0, 7)).sort();
+}
+function barChart(months){
+  const data = months.map(k => ({k, ...monthAgg(k).T}));
+  const mx = Math.max(1, ...data.map(d => Math.max(d.inAmt, d.out)));
+  const W = 340, H = 150, padB = 20, bw = W / data.length;
+  let g = "";
+  data.forEach((d, i) => {
+    const x = i * bw, h1 = d.inAmt / mx * (H - padB - 8), h2 = d.out / mx * (H - padB - 8), w = Math.max(4, bw * 0.3);
+    const sel = d.k === S.sumMonth;
+    g += `<rect x="${(x + bw / 2 - w - 1).toFixed(1)}" y="${(H - padB - h1).toFixed(1)}" width="${w.toFixed(1)}" height="${h1.toFixed(1)}" rx="2" fill="var(--in)" opacity="${sel ? 1 : .55}"/>`;
+    g += `<rect x="${(x + bw / 2 + 1).toFixed(1)}" y="${(H - padB - h2).toFixed(1)}" width="${w.toFixed(1)}" height="${h2.toFixed(1)}" rx="2" fill="var(--out)" opacity="${sel ? 1 : .55}"/>`;
+    g += `<text x="${(x + bw / 2).toFixed(1)}" y="${H - 5}" text-anchor="middle" ${sel ? 'style="fill:var(--ink);font-weight:600"' : ""}>${MONTHS_S[+d.k.slice(5) - 1]}</text>`;
+    g += `<rect x="${x.toFixed(1)}" y="0" width="${bw.toFixed(1)}" height="${H}" fill="transparent" data-act="pickMonth" data-m="${d.k}" style="cursor:pointer"/>`;
+  });
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Поступления и выдачи по месяцам">${g}</svg>
+    <div class="legend"><span><i style="background:var(--in)"></i>Поступило</span><span><i style="background:var(--out)"></i>Выдано и списано</span></div>`;
+}
+function viewSummary(v){
+  setTitle("Сводка", false);
+  const list = allMonths();
+  if (!S.sumMonth || !list.includes(S.sumMonth)) S.sumMonth = list[list.length - 1] || todayIso().slice(0, 7);
+  const mk = S.sumMonth, idx = list.indexOf(mk);
+  const {per, T} = monthAgg(mk);
+  const partners = [];
+  for (const id of S.order){
+    const t = S.targets[id]; if (t.kind !== "block") continue;
+    let inA = t.months[mk] ? t.months[mk].inAmt : 0, pc = t.months[mk] ? t.months[mk].inPct : 0;
+    for (const op of opsOf(t)) if (op.part === "in" && (op.values.date || "").startsWith(mk)){ const a = Number(op.values.amt) || 0; inA += a; pc += a * (Number(op.values.pct) || 0) / 100; }
+    if (inA) partners.push({t, inA, pc});
+  }
+  partners.sort((a, b) => b.inA - a.inA);
+  const bal = S.order.map(id => S.targets[id]).filter(t => !["table", "bank"].includes(t.kind)).map(t => ({t, b: balanceOf(t)})).filter(x => x.b != null && Math.abs(x.b) >= 1).sort((a, b) => Math.abs(b.b) - Math.abs(a.b));
+  let html = loadingBlock();
+  html += `<div class="panel pad">${barChart(list.slice(-8))}</div>
+  <div class="monthbar"><button class="btn sm ghost" data-act="mStep" data-d="-1" ${idx <= 0 ? "disabled" : ""} aria-label="Предыдущий месяц">‹</button><b>${esc(monthTitle(mk))}</b><button class="btn sm ghost" data-act="mStep" data-d="1" ${idx >= list.length - 1 ? "disabled" : ""} aria-label="Следующий месяц">›</button></div>
+  <div class="grid2"><div class="tile"><div class="lbl">Поступило</div><div class="v pos">${fmtShort(T.inAmt)}</div></div><div class="tile"><div class="lbl">Выдано и списано</div><div class="v neg">${fmtShort(T.out)}</div></div></div>
+  <div class="sec"><span>По листам</span></div><div class="panel scrollx"><table class="sum"><thead><tr><th>Лист</th><th>Поступило</th><th>Сумма %</th><th>Выдано</th></tr></thead><tbody>
+  ${per.map(r => `<tr><td>${esc(sheetLabel(r.n))}</td><td>${fmtShort(r.inAmt)}</td><td>${fmtShort(r.inPct)}</td><td>${fmtShort(r.out)}</td></tr>`).join("") || `<tr><td colspan="4" class="muted">За этот месяц записей нет</td></tr>`}
+  </tbody></table></div>
+  <div class="small muted" style="margin:6px 4px">«Сумма %» — сумма × процент из каждой строки: у покупателей и поставщиков колонка «%», у Континента и транзитов «% транзита». Банковские разделы, долги и выплаты в эти итоги не входят, чтобы не считать деньги дважды.</div>`;
+  if (partners.length) html += `<div class="sec"><span>Партнёры месяца по поступлениям</span></div><div class="panel scrollx"><table class="sum"><thead><tr><th>Партнёр</th><th>Поступило</th><th>Сумма %</th></tr></thead><tbody>${partners.slice(0, 12).map(p => `<tr><td><button class="chip" style="border:0;background:none;padding:0;font-size:14px" data-act="openTarget" data-id="${esc(p.t.id)}">${esc(p.t.title)}</button><div class="small muted">${esc(sheetLabel(p.t.sheet))}</div></td><td>${fmtShort(p.inA)}</td><td>${fmtShort(p.pc)}</td></tr>`).join("")}</tbody></table></div>`;
+  html += `<div class="sec"><span>Крупнейшие остатки сейчас</span></div><div class="panel">${bal.slice(0, 15).map(x => targetRow(x.t)).join("")}</div>`;
+  v.innerHTML = html;
+}
+
+/* ---------- файл и настройки ---------- */
+function viewFile(v){
+  setTitle("Файл", false);
+  let html = `<div class="panel pad"><div class="small muted">Рабочая таблица</div><div style="font-weight:600;word-break:break-all">${esc(S.baseName)}</div><div class="small muted">${(S.baseBuf.byteLength / 1048576).toFixed(1)} МБ · листов в работе: ${sheetsInOrder().length}</div></div>`;
+  html += `<div class="sec"><span>Не сохранено в файл: ${S.ops.length}</span></div>`;
+  if (S.ops.length) html += `<div class="panel">${S.ops.slice().reverse().map(o => { const t = S.targets[o.targetId]; return t ? recRow(t, o, true, true) : ""; }).join("")}</div>`;
+  html += `<div class="panel pad"><button class="btn primary wide" data-act="export" ${S.ops.length ? "" : "disabled"}>Сохранить таблицу с новыми записями</button>
+    <div class="small muted" style="margin-top:8px">Записи попадут в нужные блоки и строки. Формулы и оформление не меняются, Excel пересчитает итоги при открытии.</div>
+    ${S.lastExport ? `<button class="btn ghost wide" style="margin-top:10px" data-act="adopt">Продолжить работу с сохранённым файлом</button><div class="small muted" style="margin-top:6px">Сохранённый файл станет рабочим, список новых записей очистится.</div>` : ""}</div>
+  <div class="panel">
+    <button class="row" data-act="pickXlsx"><div class="grow"><div class="t">Открыть другую таблицу</div><div class="s">Например, присланную коллегой</div></div><span class="muted">›</span></button>
+    <button class="row" data-act="openRules"><div class="grow"><div class="t">Выученные подсказки</div><div class="s">${Object.keys(S.rules).filter(k => !k.includes("|")).length} контрагентов</div></div><span class="muted">›</span></button>
+    <div class="row"><div class="grow"><div class="t">Оформление</div></div><div class="seg" style="margin:0;min-width:200px">${[["auto", "Авто"], ["light", "Светлое"], ["dark", "Тёмное"]].map(([k, l]) => `<button data-act="theme" data-v="${k}" aria-pressed="${S.settings.theme === k}">${l}</button>`).join("")}</div></div>
+  </div>
+  <div class="panel pad small muted">Офлайн-версия ${APP_VERSION}. Данные хранятся только на этом устройстве.<br>Наши реквизиты (из выписок): ${esc((S.settings.ownInn || []).map(i => "ИНН " + i).join(", ") || "пока не определены — загрузите выписку")}</div>`;
+  v.innerHTML = html;
+}
+function viewRules(v){
+  setTitle("Выученные подсказки", true);
+  const keys = Object.keys(S.rules).filter(k => !k.includes("|") && S.rules[k].length);
+  v.innerHTML = keys.length ? `<div class="panel">${keys.map(k => { const r = S.rules[k]; const lbl = r[0].label || k.replace(/^\w+:/, "");
+    return `<div class="row"><div class="grow"><div class="t">${esc(lbl)}</div><div class="s">${esc(r.map(x => (S.targets[x.targetId] || {}).title).filter(Boolean).join(" + "))}</div></div><button class="btn sm ghost" data-act="delRule" data-k="${esc(k)}" aria-label="Забыть">Забыть</button></div>`; }).join("")}</div>`
+    : `<div class="empty"><p>Подсказки появятся, когда вы запишете первые операции из документов.</p></div>`;
+}
+function applyTheme(){ const t = S.settings.theme; if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.dataset.theme = t; }
+
+/* ================= события ================= */
+document.addEventListener("click", async e => {
+  const tb = e.target.closest("nav.tabs button");
+  if (tb){ S.tab = tb.dataset.tab; S.stack = []; render(); window.scrollTo(0, 0); return; }
+  if (e.target.closest("#backBtn")){ S.stack.pop(); S.filter = "all"; S.showN = 40; render(); return; }
+  const a = e.target.closest("[data-act]"); if (!a) return;
+  const act = a.dataset.act, cand = id => S.cands.find(c => c.id === id);
+  switch (act){
+    case "pickXlsx": $("#xlsxInput").click(); break;
+    case "pickDoc": $("#docInput").click(); break;
+    case "goDocs": S.tab = "docs"; S.stack = []; render(); break;
+    case "openSheet": S.stack.push({type: "sheet", name: a.dataset.name}); render(); window.scrollTo(0, 0); break;
+    case "openTarget": S.stack.push({type: "target", id: a.dataset.id}); S.filter = "all"; S.showN = 40; render(); window.scrollTo(0, 0); break;
+    case "openRules": S.stack.push({type: "rules"}); render(); break;
+    case "quickNew": openPicker(t => { S.tab = "ledgers"; S.stack = [{type: "target", id: t.id}]; render(); }, null, "Выберите журнал"); break;
+    case "pin": { const id = a.dataset.id; const p = S.settings.pins || (S.settings.pins = []); const i = p.indexOf(id); if (i >= 0) p.splice(i, 1); else p.push(id); await Store.set("settings", S.settings); render(); break; }
+    case "filter": S.filter = a.dataset.f; S.showN = 40; render(); break;
+    case "more": S.showN += 60; render(); break;
+    case "newOp": { const t = S.targets[a.dataset.id], part = a.dataset.part, vals = {};
+      for (const f of t.parts[part].fields){ if (f.key === "date") vals.date = todayIso(); else if (["pct", "pctT", "rate", "ka", "partner", "company"].includes(f.key)) vals[f.key] = lastValue(t, part, f.key); }
+      openForm(t, part, vals); break; }
+    case "debtRet": { const t = S.targets[a.dataset.id]; const row = +a.dataset.row; openForm(t, "ret", {}, {row, subNote: "сумма добавится к колонке возврата"}); break; }
+    case "editOp": { const op = S.ops.find(o => o.id === a.dataset.id); if (!op) break; const t = S.targets[op.targetId]; openForm(t, op.part, op.values, {op, row: op.row}); break; }
+    case "candUse": { const c = cand(a.dataset.id); const t = S.targets[a.dataset.t]; const sg = suggestFor(c).find(s => s.targetId === t.id && s.part === a.dataset.part); useCand(c, t, a.dataset.part, sg); break; }
+    case "candPick": { const c = cand(a.dataset.id); openPicker(t => useCand(c, t, c.dir === "out" ? (t.parts.out.fields.length ? "out" : "in") : (t.parts.in.fields.length ? "in" : "out")), null); break; }
+    case "candEdit": openCandEdit(cand(a.dataset.id)); break;
+    case "candSkip": { const c = cand(a.dataset.id); c.skipped = true; await Store.set("cands", S.cands); render(); break; }
+    case "candUnskip": { const c = cand(a.dataset.id); c.skipped = false; await Store.set("cands", S.cands); render(); break; }
+    case "clearDone": S.cands = S.cands.filter(c => !c.done && !c.skipped); await Store.set("cands", S.cands); render(); break;
+    case "bulk": await bulkWrite(); break;
+    case "mStep": { const list = allMonths(); const i = list.indexOf(S.sumMonth); S.sumMonth = list[Math.max(0, Math.min(list.length - 1, i + Number(a.dataset.d)))]; render(); break; }
+    case "pickMonth": S.sumMonth = a.dataset.m; render(); break;
+    case "delRule": { const k = a.dataset.k; for (const key of Object.keys(S.rules)) if (key === k || key.startsWith(k + "|")) delete S.rules[key]; await Store.set("rules", S.rules); render(); break; }
+    case "toggleClaude": S.settings.claudeOk = !S.settings.claudeOk; await Store.set("settings", S.settings); render(); break;
+    case "theme": S.settings.theme = a.dataset.v; applyTheme(); await Store.set("settings", S.settings); render(); break;
+    case "export": {
+      a.disabled = true; a.textContent = "Собираю файл…";
+      try{
+        const blob = await buildXlsx();
+        const name = S.baseName.replace(/\.xlsx$/i, "").replace(/_\d{2}\.\d{2}\.\d{4}$/, "") + "_" + fmtDate(todayIso()) + ".xlsx";
+        S.lastExport = {blob, name};
+        const r = await saveBlob(blob, name);
+        toast(r === "declined" ? "Сохранение отменено" : "Файл сохранён");
+      }catch(err){ console.error(err); toast("Не удалось собрать файл: " + err.message, 5000); }
+      render(); break; }
+    case "adopt": {
+      if (!S.lastExport) break;
+      if (!(await confirmBox("Продолжить с сохранённым файлом?", "Он станет рабочим, а список новых записей очистится — они уже внутри файла.", "Продолжить"))) break;
+      const buf = await S.lastExport.blob.arrayBuffer(), nm = S.lastExport.name;
+      S.ops = []; await Store.set("ops", S.ops); S.lastExport = null;
+      await adoptBase(buf, nm); break; }
+  }
+});
+$("#xlsxInput").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  if (S.ops.length && !(await confirmBox("Открыть другую таблицу?", `Есть ${S.ops.length} несохранённых записей, они будут потеряны.`, "Открыть"))) return;
+  const buf = await f.arrayBuffer();
+  S.ops = []; await Store.set("ops", S.ops); S.cands = []; await Store.set("cands", S.cands);
+  await adoptBase(buf, f.name);
+});
+$("#docInput").addEventListener("change", e => { const fs = [...e.target.files]; e.target.value = ""; if (fs.length){ S.tab = "docs"; S.stack = []; handleDocs(fs); } });
+async function adoptBase(buf, name){
+  try{
+    S.baseBuf = buf; S.baseName = name;
+    await loadWorkbook(buf);
+    await Store.set("base", buf); await Store.set("baseName", name);
+    S.stack = [];
+    await parseAll();
+  }catch(err){ console.error(err); S.zip = null; toast("Не удалось открыть таблицу: " + err.message, 5000); render(); }
+}
+
+/* ================= запуск ================= */
+if ("serviceWorker" in navigator && location.protocol !== "file:"){
+  navigator.serviceWorker.register("sw.js").catch(e => console.warn("sw", e));
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (S.swReloadOk) location.reload(); });
+}
+(async function init(){
+  render();
+  try{ if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); }catch{}
+  await Store.open();
+  S.ops = (await Store.get("ops")) || [];
+  S.rules = (await Store.get("rules")) || {};
+  S.settings = Object.assign({ownInn: [], ownNames: [], pins: null, theme: "auto", claudeOk: false}, (await Store.get("settings")) || {});
+  applyTheme();
+  S.cands = (await Store.get("cands")) || [];
+  S.files = (await Store.get("files")) || {};
+  const buf = await Store.get("base");
+  if (buf){
+    S.baseBuf = buf; S.baseName = (await Store.get("baseName")) || "таблица.xlsx";
+    try{ await loadWorkbook(buf); await parseAll(); }catch(e){ console.error(e); S.zip = null; render(); }
+  } else render();
+})();
+window.__app = {S, buildXlsx, addOp, readDocument, suggestFor, dupsFor, autoPlan, parseCheckLines, tableToOps};
+</script>
+</body>
+</html>
