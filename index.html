@@ -9,9 +9,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Сверка">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-180.png">
-<script src="lib/jszip.min.js"></script>
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<script src="jszip.min.js"></script>
 <style>
 :root{
   --bg:#EEF1EF; --surface:#FFFFFF; --sunk:#E3E8E5; --ink:#16232E; --muted:#5E6C75; --line:#D3DAD7;
@@ -151,10 +151,11 @@ table.sum td:first-child{white-space:normal}
 /* ================= настройки ================= */
 let WORK_SHEETS = [];  // выбираются при первом открытии таблицы и хранятся только на устройстве
 const SHEET_HINT = /покупател|поставщик|общий|транзит|долг|дивиденд|касс/i;
-const PDFJS = new URL("lib/pdf.min.mjs", location.href).href;
-const PDFJS_WORKER = new URL("lib/pdf.worker.min.mjs", location.href).href;
+const PDFJS = new URL("pdf.min.mjs", location.href).href;
+const PDFJS_WORKER = new URL("pdf.worker.min.mjs", location.href).href;
 const OFFLINE = true;
-const APP_VERSION = "2.1";
+const APP_VERSION = "2.2";
+const APP_FILES = ["index.html","manifest.webmanifest","sw.js","jszip.min.js","pdf.min.mjs","pdf.worker.min.mjs","icon-180.png","icon-192.png","icon-512.png","icon-maskable-512.png"];
 
 /* ================= утилиты ================= */
 const $ = (s, r = document) => r.querySelector(s);
@@ -1111,7 +1112,7 @@ function render(){
   badges();
   for (const b of document.querySelectorAll("nav.tabs button")) b.setAttribute("aria-current", b.dataset.tab === S.tab ? "page" : "false");
   const v = $("#view");
-  if (!S.zip){ setTitle("Сверка", false); v.innerHTML = `<div class="empty"><h2>Откройте рабочую таблицу</h2><p>Выберите ваш файл .xlsx. Он хранится только на этом телефоне.</p><button class="btn primary wide" data-act="pickXlsx">Открыть таблицу</button></div>`; return; }
+  if (!S.zip){ setTitle("Сверка", false); v.innerHTML = `<div class="empty"><h2>Откройте рабочую таблицу</h2><p>Выберите ваш файл .xlsx. Он хранится только на этом телефоне.</p><button class="btn primary wide" data-act="pickXlsx">Открыть таблицу</button></div>${offlineBlock()}`; if (!S.offline) offlineCheck().then(() => { if (!S.zip) render(); }); return; }
   const top = S.stack[S.stack.length - 1];
   if (top && top.type === "target") return viewTarget(v, S.targets[top.id]);
   if (top && top.type === "sheet") return viewSheet(v, top.name);
@@ -1483,7 +1484,8 @@ function viewSummary(v){
 /* ---------- файл и настройки ---------- */
 function viewFile(v){
   setTitle("Файл", false);
-  let html = `<div class="panel pad"><div class="small muted">Рабочая таблица</div><div style="font-weight:600;word-break:break-all">${esc(S.baseName)}</div><div class="small muted">${(S.baseBuf.byteLength / 1048576).toFixed(1)} МБ · листов в работе: ${sheetsInOrder().length}</div></div>`;
+  if (!S.offline) offlineCheck().then(() => { if (S.tab === "file" && !S.stack.length) render(); });
+  let html = offlineBlock() + `<div class="panel pad"><div class="small muted">Рабочая таблица</div><div style="font-weight:600;word-break:break-all">${esc(S.baseName)}</div><div class="small muted">${(S.baseBuf.byteLength / 1048576).toFixed(1)} МБ · листов в работе: ${sheetsInOrder().length}</div></div>`;
   html += `<div class="sec"><span>Не сохранено в файл: ${S.ops.length}</span></div>`;
   if (S.ops.length) html += `<div class="panel">${S.ops.slice().reverse().map(o => { const t = S.targets[o.targetId]; return t ? recRow(t, o, true, true) : ""; }).join("")}</div>`;
   html += `<div class="panel pad"><button class="btn primary wide" data-act="export" ${S.ops.length ? "" : "disabled"}>Сохранить таблицу с новыми записями</button>
@@ -1584,6 +1586,30 @@ async function adoptBase(buf, name){
     S.stack = [];
     await openOrPick();
   }catch(err){ console.error(err); S.zip = null; toast("Не удалось открыть таблицу: " + err.message, 5000); render(); }
+}
+
+/* ================= проверка офлайн-режима ================= */
+async function offlineCheck(){
+  const res = {https: location.protocol === "https:" || location.hostname === "localhost", sw: false, missing: [], cached: 0};
+  try{ const r = await navigator.serviceWorker?.getRegistration(); res.sw = !!(r && (r.active || r.waiting || r.installing)); }catch{}
+  await Promise.all(APP_FILES.map(async f => {
+    let ok = false;
+    try{ ok = !!(await caches.match(new URL(f, location.href).href)); }catch{}
+    if (ok){ res.cached++; return; }
+    try{ const r = await fetch(f, {method: "HEAD", cache: "no-store"}); if (!r.ok) res.missing.push(f); }catch{ res.missing.push(f + " (нет связи)"); }
+  }));
+  res.ready = res.https && res.sw && res.cached === APP_FILES.length;
+  S.offline = res; return res;
+}
+function offlineBlock(){
+  const o = S.offline; if (!o) return `<div class="panel pad small muted">Проверяю офлайн-режим…</div>`;
+  if (o.ready) return `<div class="panel pad small"><b class="pos">✓ Готово к работе без интернета</b><div class="muted">Все ${APP_FILES.length} файлов приложения сохранены на телефоне.</div></div>`;
+  const why = [];
+  if (!o.https) why.push("сайт открыт не по адресу https://");
+  if (o.missing.length) why.push("на сайте не хватает файлов: " + o.missing.join(", ") + ". Загрузите их в репозиторий рядом с index.html");
+  if (!o.missing.length && o.https && !o.sw) why.push("служба офлайн-режима ещё не запустилась — закройте и снова откройте страницу");
+  if (!o.missing.length && o.https && o.sw && o.cached < APP_FILES.length) why.push(`сохранено ${o.cached} из ${APP_FILES.length} файлов — подождите минуту при включённом интернете и обновите страницу`);
+  return `<div class="note"><b>Офлайн-режим не готов.</b> ${esc(why.join("; "))}.</div>`;
 }
 
 /* ================= выбор рабочих листов ================= */
