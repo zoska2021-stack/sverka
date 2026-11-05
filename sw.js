@@ -1,5 +1,5 @@
 // Сверка — офлайн-кэш. При обновлении файлов увеличьте VERSION.
-const VERSION = "sverka-2.0";
+const VERSION = "sverka-2.1";
 const FILES = [
   "./", "./index.html", "./manifest.webmanifest",
   "./lib/jszip.min.js", "./lib/pdf.min.mjs", "./lib/pdf.worker.min.mjs",

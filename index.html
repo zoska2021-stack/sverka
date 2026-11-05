@@ -149,15 +149,12 @@ table.sum td:first-child{white-space:normal}
 <script>
 "use strict";
 /* ================= настройки ================= */
-const WORK_SHEETS = [
-  "общий_Континент_ДТ","общий_Континент_АГОРА","общий_Аппарат_22_","транзиты","Рост МСК",
-  "покупатели_продукты","поставщики_продукты","покупатели_ДТ_","поставщики_ДТ_",
-  "покупатели_СТРОЙКА_","поставщики_СТРОЙКА_","ДОЛГИ_","дивиденды_выплата"
-];
+let WORK_SHEETS = [];  // выбираются при первом открытии таблицы и хранятся только на устройстве
+const SHEET_HINT = /покупател|поставщик|общий|транзит|долг|дивиденд|касс/i;
 const PDFJS = new URL("lib/pdf.min.mjs", location.href).href;
 const PDFJS_WORKER = new URL("lib/pdf.worker.min.mjs", location.href).href;
 const OFFLINE = true;
-const APP_VERSION = "2.0";
+const APP_VERSION = "2.1";
 
 /* ================= утилиты ================= */
 const $ = (s, r = document) => r.querySelector(s);
@@ -290,7 +287,7 @@ function detectLayout(sheetName, hdr, above){
   const has = t => cols.some(c => H(c) === t);
   const groups = [];
   const title = sheetLabel(sheetName);
-  // журнал Континента / транзитов
+  // журнал транзитов (плательщик / дата оплаты)
   if (has("плательщик") && has("дата оплаты")){
     const g = {kind: "ledger", title, start: cols[0], c: {}}; let doutCol = 0;
     for (const c of cols){
@@ -534,7 +531,8 @@ async function parseAll(){
   }
   S.loading = null;
   if (!S.settings.pins){
-    S.settings.pins = S.order.filter(id => { const t = S.targets[id]; return /Континент_ДТ/.test(t.sheet) && (t.kind === "ledger" || (t.kind === "bank" && /СКЛАД/i.test(t.title))) || t.kind === "cash"; }).slice(0, 4);
+    const first = k => S.order.find(id => S.targets[id].kind === k);
+    S.settings.pins = [first("ledger"), first("cash")].filter(Boolean);
     await Store.set("settings", S.settings);
   }
   render();
@@ -1118,6 +1116,7 @@ function render(){
   if (top && top.type === "target") return viewTarget(v, S.targets[top.id]);
   if (top && top.type === "sheet") return viewSheet(v, top.name);
   if (top && top.type === "rules") return viewRules(v);
+  if (S.pickSheets) return viewPickSheets(v);
   ({home: viewHome, ledgers: viewLedgers, docs: viewDocs, summary: viewSummary, file: viewFile})[S.tab](v);
 }
 function loadingBlock(){
@@ -1475,7 +1474,7 @@ function viewSummary(v){
   <div class="sec"><span>По листам</span></div><div class="panel scrollx"><table class="sum"><thead><tr><th>Лист</th><th>Поступило</th><th>Сумма %</th><th>Выдано</th></tr></thead><tbody>
   ${per.map(r => `<tr><td>${esc(sheetLabel(r.n))}</td><td>${fmtShort(r.inAmt)}</td><td>${fmtShort(r.inPct)}</td><td>${fmtShort(r.out)}</td></tr>`).join("") || `<tr><td colspan="4" class="muted">За этот месяц записей нет</td></tr>`}
   </tbody></table></div>
-  <div class="small muted" style="margin:6px 4px">«Сумма %» — сумма × процент из каждой строки: у покупателей и поставщиков колонка «%», у Континента и транзитов «% транзита». Банковские разделы, долги и выплаты в эти итоги не входят, чтобы не считать деньги дважды.</div>`;
+  <div class="small muted" style="margin:6px 4px">«Сумма %» — сумма × процент из каждой строки: у покупателей и поставщиков колонка «%», у журналов транзитов «% транзита». Банковские разделы, долги и выплаты в эти итоги не входят, чтобы не считать деньги дважды.</div>`;
   if (partners.length) html += `<div class="sec"><span>Партнёры месяца по поступлениям</span></div><div class="panel scrollx"><table class="sum"><thead><tr><th>Партнёр</th><th>Поступило</th><th>Сумма %</th></tr></thead><tbody>${partners.slice(0, 12).map(p => `<tr><td><button class="chip" style="border:0;background:none;padding:0;font-size:14px" data-act="openTarget" data-id="${esc(p.t.id)}">${esc(p.t.title)}</button><div class="small muted">${esc(sheetLabel(p.t.sheet))}</div></td><td>${fmtShort(p.inA)}</td><td>${fmtShort(p.pc)}</td></tr>`).join("")}</tbody></table></div>`;
   html += `<div class="sec"><span>Крупнейшие остатки сейчас</span></div><div class="panel">${bal.slice(0, 15).map(x => targetRow(x.t)).join("")}</div>`;
   v.innerHTML = html;
@@ -1492,6 +1491,7 @@ function viewFile(v){
     ${S.lastExport ? `<button class="btn ghost wide" style="margin-top:10px" data-act="adopt">Продолжить работу с сохранённым файлом</button><div class="small muted" style="margin-top:6px">Сохранённый файл станет рабочим, список новых записей очистится.</div>` : ""}</div>
   <div class="panel">
     <button class="row" data-act="pickXlsx"><div class="grow"><div class="t">Открыть другую таблицу</div><div class="s">Например, присланную коллегой</div></div><span class="muted">›</span></button>
+    <button class="row" data-act="changeSheets"><div class="grow"><div class="t">Рабочие листы</div><div class="s">${WORK_SHEETS.length} ${plural(WORK_SHEETS.length, "лист", "листа", "листов")} в работе</div></div><span class="muted">›</span></button>
     <button class="row" data-act="openRules"><div class="grow"><div class="t">Выученные подсказки</div><div class="s">${Object.keys(S.rules).filter(k => !k.includes("|")).length} контрагентов</div></div><span class="muted">›</span></button>
     <div class="row"><div class="grow"><div class="t">Оформление</div></div><div class="seg" style="margin:0;min-width:200px">${[["auto", "Авто"], ["light", "Светлое"], ["dark", "Тёмное"]].map(([k, l]) => `<button data-act="theme" data-v="${k}" aria-pressed="${S.settings.theme === k}">${l}</button>`).join("")}</div></div>
   </div>
@@ -1521,6 +1521,14 @@ document.addEventListener("click", async e => {
     case "openSheet": S.stack.push({type: "sheet", name: a.dataset.name}); render(); window.scrollTo(0, 0); break;
     case "openTarget": S.stack.push({type: "target", id: a.dataset.id}); S.filter = "all"; S.showN = 40; render(); window.scrollTo(0, 0); break;
     case "openRules": S.stack.push({type: "rules"}); render(); break;
+    case "sheetsDone": {
+      const sel = [...document.querySelectorAll('#view input[type="checkbox"]:checked')].map(i => i.value);
+      if (!sel.length){ toast("Отметьте хотя бы один лист"); break; }
+      S.settings.sheets = sel; WORK_SHEETS = sel; await Store.set("settings", S.settings);
+      S.pickSheets = false; resetParsed(); await parseAll(); break; }
+    case "changeSheets":
+      if (S.ops.length){ toast("Сначала сохраните таблицу: есть несохранённые записи", 3500); break; }
+      S.stack = []; S.pickSheets = true; render(); break;
     case "quickNew": openPicker(t => { S.tab = "ledgers"; S.stack = [{type: "target", id: t.id}]; render(); }, null, "Выберите журнал"); break;
     case "pin": { const id = a.dataset.id; const p = S.settings.pins || (S.settings.pins = []); const i = p.indexOf(id); if (i >= 0) p.splice(i, 1); else p.push(id); await Store.set("settings", S.settings); render(); break; }
     case "filter": S.filter = a.dataset.f; S.showN = 40; render(); break;
@@ -1574,8 +1582,25 @@ async function adoptBase(buf, name){
     await loadWorkbook(buf);
     await Store.set("base", buf); await Store.set("baseName", name);
     S.stack = [];
-    await parseAll();
+    await openOrPick();
   }catch(err){ console.error(err); S.zip = null; toast("Не удалось открыть таблицу: " + err.message, 5000); render(); }
+}
+
+/* ================= выбор рабочих листов ================= */
+function chooseSheets(){
+  const names = S.sheets.map(s => s.name.trim());
+  const saved = (S.settings.sheets || []).filter(n => names.includes(n));
+  if (saved.length){ WORK_SHEETS = saved; return true; }
+  return false;
+}
+function resetParsed(){ S.parsed = {}; S.targets = {}; S.order = []; S.index = new Map(); S.amtIdx = new Map(); }
+async function openOrPick(){ if (chooseSheets()) await parseAll(); else { S.pickSheets = true; render(); } }
+function viewPickSheets(v){
+  setTitle("Рабочие листы", false);
+  const cur = new Set(WORK_SHEETS.length ? WORK_SHEETS : S.sheets.map(s => s.name.trim()).filter(n => SHEET_HINT.test(n)));
+  v.innerHTML = `<div class="panel pad small muted">Отметьте листы, куда вы вносите операции. Выбор хранится только на этом телефоне. Листы со сводками и аналитикой отмечать не нужно: приложение считает их само.</div>
+    <div class="panel">${S.sheets.map(s => { const n = s.name.trim(); return `<label class="row" style="cursor:pointer"><input type="checkbox" value="${esc(n)}" ${cur.has(n) ? "checked" : ""} style="width:20px;height:20px;flex:none"><div class="grow"><div class="t">${esc(sheetLabel(n))}</div></div></label>`; }).join("")}</div>
+    <button class="btn primary wide" data-act="sheetsDone">Готово</button>`;
 }
 
 /* ================= запуск ================= */
@@ -1596,7 +1621,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:"){
   const buf = await Store.get("base");
   if (buf){
     S.baseBuf = buf; S.baseName = (await Store.get("baseName")) || "таблица.xlsx";
-    try{ await loadWorkbook(buf); await parseAll(); }catch(e){ console.error(e); S.zip = null; render(); }
+    try{ await loadWorkbook(buf); await openOrPick(); }catch(e){ console.error(e); S.zip = null; render(); }
   } else render();
 })();
 window.__app = {S, buildXlsx, addOp, readDocument, suggestFor, dupsFor, autoPlan, parseCheckLines, tableToOps};
